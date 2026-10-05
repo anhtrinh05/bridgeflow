@@ -4,11 +4,11 @@ AI-assisted requirements workspace for Japanese–Vietnamese software teams.
 
 ## Current product slice
 
-- Bilingual requirement review workspace
-- Requirement status and priority indicators
-- AI-assisted clarification questions in Japanese
-- Acceptance criteria and change history tabs
-- Responsive enterprise dashboard UI
+- Live Project and Requirement REST API backed by PostgreSQL
+- Stable requirement identity with append-only bilingual revisions
+- BrSE review/confirmation workflow and revision history
+- Synthetic Japanese–Vietnamese demo workspace (no customer data)
+- Responsive frontend with loading, error, and empty states
 
 ## Repository layout
 
@@ -28,6 +28,9 @@ npm run dev
 
 Open `http://127.0.0.1:5173`.
 
+The frontend calls `http://127.0.0.1:8080/api/v1` by default. Override it with
+`NEXT_PUBLIC_API_URL` when the API is hosted elsewhere.
+
 ## Backend development
 
 Prerequisites: JDK 21, Maven 3.9+, and PostgreSQL (local or Docker).
@@ -35,7 +38,7 @@ Prerequisites: JDK 21, Maven 3.9+, and PostgreSQL (local or Docker).
 ```bash
 docker compose up -d postgres
 cd backend
-mvn spring-boot:run
+mvn spring-boot:run -Dspring-boot.run.profiles=dev
 ```
 
 The API runs at `http://127.0.0.1:8080`. Check liveness at
@@ -62,8 +65,7 @@ See [backend/README.md](backend/README.md) for details and optional tool paths.
 
 ## Planned milestones
 
-1. Project and requirement CRUD on the backend foundation
-2. Authentication, project membership, document, and glossary management
-3. Japanese document ingestion and requirement extraction
-4. Q&A, acceptance criteria, and test-case generation
-5. Requirement traceability, change-impact analysis, and production observability
+1. Authentication, project membership, document, and glossary management
+2. Japanese document ingestion and requirement extraction
+3. Q&A, acceptance criteria, and test-case generation
+4. Requirement traceability, change-impact analysis, and production observability
