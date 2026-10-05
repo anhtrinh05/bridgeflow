@@ -15,7 +15,7 @@ From the repository root:
 ```bash
 docker compose up -d postgres
 cd backend
-mvn spring-boot:run
+mvn spring-boot:run -Dspring-boot.run.profiles=dev
 ```
 
 Environment variables can override the development defaults:
@@ -30,6 +30,22 @@ Environment variables can override the development defaults:
 The password above is only for the local Docker database. Use a secret manager in
 deployed environments.
 
+## REST API
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| `GET` / `POST` | `/api/v1/projects` | List or create projects |
+| `GET` | `/api/v1/projects/{projectId}` | Read a project |
+| `GET` / `POST` | `/api/v1/projects/{projectId}/requirements` | List or create requirements |
+| `GET` | `/api/v1/requirements/{requirementId}` | Read a requirement and its revision history |
+| `POST` | `/api/v1/requirements/{requirementId}/revisions` | Add a bilingual revision |
+| `POST` | `/api/v1/requirements/{requirementId}/revisions/{revisionId}/confirm` | Confirm the latest revision |
+
+The default profile only loads production-safe schema migrations from
+`db/migration`. The `dev` profile additionally loads synthetic
+Japanese–Vietnamese portfolio data from `db/devdata`; it contains no customer
+documents or NDA-protected data.
+
 ## Verify
 
 ```bash
@@ -38,8 +54,8 @@ curl http://127.0.0.1:8080/api/v1/health
 curl http://127.0.0.1:8080/actuator/health
 ```
 
-The integration test starts an isolated PostgreSQL container and verifies both
-Flyway migrations and stable requirement/revision persistence.
+The integration test starts an isolated PostgreSQL container and verifies the
+production-safe Flyway migrations and stable requirement/revision persistence.
 
 ### Windows without Docker
 

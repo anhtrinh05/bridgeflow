@@ -91,6 +91,12 @@ public class Requirement {
         status = RequirementStatus.CONFIRMED;
     }
 
+    public void markReviewing() {
+        if (status != RequirementStatus.ARCHIVED) {
+            status = RequirementStatus.REVIEWING;
+        }
+    }
+
     public UUID getId() {
         return id;
     }

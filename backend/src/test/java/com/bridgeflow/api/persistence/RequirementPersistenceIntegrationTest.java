@@ -10,6 +10,9 @@ import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.util.UUID;
 
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
+
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -80,6 +83,9 @@ class RequirementPersistenceIntegrationTest {
 
     @Autowired
     private Environment environment;
+
+    @Autowired
+    private ObjectMapper objectMapper;
 
     @Test
     @Transactional
@@ -154,6 +160,7 @@ class RequirementPersistenceIntegrationTest {
 
     @Test
     void healthEndpointsRespondWithRunningDatabase() throws Exception {
+        assertThat(projectRepository.findByCode("EC-RENEWAL")).isEmpty();
         var baseUrl = "http://127.0.0.1:" + environment.getRequiredProperty("local.server.port");
         try (var client = HttpClient.newHttpClient()) {
             for (var path : new String[] {"/api/v1/health", "/actuator/health"}) {
@@ -162,6 +169,65 @@ class RequirementPersistenceIntegrationTest {
                 assertThat(response.statusCode()).isEqualTo(200);
                 assertThat(response.body()).contains("\"status\":\"UP\"");
             }
+        }
+    }
+
+    @Test
+    void createsRevisesAndConfirmsARequirementThroughTheRestApi() throws Exception {
+        var suffix = UUID.randomUUID().toString().substring(0, 8).toUpperCase();
+        var project = sendJson("POST", "/api/v1/projects", """
+            {"code":"API-%s","name":"API integration project","customerName":"架空株式会社"}
+            """.formatted(suffix), 201);
+        var projectId = project.required("id").asText();
+
+        var requirement = sendJson("POST", "/api/v1/projects/" + projectId + "/requirements", """
+            {"displayKey":"REQ-001","japaneseText":"利用者は要件を確認できる。","vietnameseText":"Người dùng có thể xem yêu cầu."}
+            """, 201);
+        var requirementId = requirement.required("id").asText();
+        assertThat(requirement.required("status").asText()).isEqualTo("REVIEWING");
+        assertThat(requirement.required("latestRevision").required("revisionNumber").asInt()).isEqualTo(1);
+
+        requirement = sendJson("POST", "/api/v1/requirements/" + requirementId + "/revisions", """
+            {"japaneseText":"利用者は要件と履歴を確認できる。","vietnameseText":"Người dùng có thể xem yêu cầu và lịch sử.","changeType":"MODIFIED"}
+            """, 200);
+        var revisionId = requirement.required("latestRevision").required("id").asText();
+        assertThat(requirement.required("latestRevision").required("revisionNumber").asInt()).isEqualTo(2);
+
+        requirement = sendJson("POST", "/api/v1/requirements/" + requirementId
+            + "/revisions/" + revisionId + "/confirm", """
+            {"reviewerId":"40000000-0000-4000-8000-000000000099"}
+            """, 200);
+        assertThat(requirement.required("status").asText()).isEqualTo("CONFIRMED");
+        assertThat(requirement.required("currentRevisionId").asText()).isEqualTo(revisionId);
+
+        var detail = sendJson("GET", "/api/v1/requirements/" + requirementId, null, 200);
+        assertThat(detail.required("revisions")).hasSize(2);
+        assertThat(detail.required("id").asText()).isEqualTo(requirementId);
+    }
+
+    @Test
+    void returnsStructuredValidationErrors() throws Exception {
+        var response = sendJson("POST", "/api/v1/projects", """
+            {"code":"","name":"","customerName":"demo"}
+            """, 400);
+        assertThat(response.required("code").asText()).isEqualTo("VALIDATION_FAILED");
+        assertThat(response.required("fields").has("code")).isTrue();
+        assertThat(response.required("fields").has("name")).isTrue();
+    }
+
+    private JsonNode sendJson(String method, String path, String body, int expectedStatus) throws Exception {
+        var baseUrl = "http://127.0.0.1:" + environment.getRequiredProperty("local.server.port");
+        var builder = HttpRequest.newBuilder(URI.create(baseUrl + path)).timeout(Duration.ofSeconds(10));
+        if (body == null) {
+            builder.GET();
+        } else {
+            builder.header("Content-Type", "application/json")
+                .method(method, HttpRequest.BodyPublishers.ofString(body));
+        }
+        try (var client = HttpClient.newHttpClient()) {
+            var response = client.send(builder.build(), HttpResponse.BodyHandlers.ofString());
+            assertThat(response.statusCode()).as(response.body()).isEqualTo(expectedStatus);
+            return objectMapper.readTree(response.body());
         }
     }
 }
