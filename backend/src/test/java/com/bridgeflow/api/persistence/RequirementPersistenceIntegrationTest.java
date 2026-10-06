@@ -180,6 +180,12 @@ class RequirementPersistenceIntegrationTest {
             """.formatted(suffix), 201);
         var projectId = project.required("id").asText();
 
+        project = sendJson("PATCH", "/api/v1/projects/" + projectId, """
+            {"name":"Updated API project","customerName":"更新株式会社"}
+            """, 200);
+        assertThat(project.required("name").asText()).isEqualTo("Updated API project");
+        assertThat(project.required("customerName").asText()).isEqualTo("更新株式会社");
+
         var requirement = sendJson("POST", "/api/v1/projects/" + projectId + "/requirements", """
             {"displayKey":"REQ-001","japaneseText":"利用者は要件を確認できる。","vietnameseText":"Người dùng có thể xem yêu cầu."}
             """, 201);
@@ -203,6 +209,13 @@ class RequirementPersistenceIntegrationTest {
         var detail = sendJson("GET", "/api/v1/requirements/" + requirementId, null, 200);
         assertThat(detail.required("revisions")).hasSize(2);
         assertThat(detail.required("id").asText()).isEqualTo(requirementId);
+
+        project = sendJson("POST", "/api/v1/projects/" + projectId + "/archive", "{}", 200);
+        assertThat(project.required("status").asText()).isEqualTo("ARCHIVED");
+        var activeProjects = sendJson("GET", "/api/v1/projects", null, 200);
+        assertThat(activeProjects.toString()).doesNotContain(projectId);
+        var allProjects = sendJson("GET", "/api/v1/projects?includeArchived=true", null, 200);
+        assertThat(allProjects.toString()).contains(projectId);
     }
 
     @Test

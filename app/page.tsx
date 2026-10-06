@@ -1,11 +1,11 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { FormEvent, ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import {
-  AlertCircle, Bell, BookOpenText, Check, ChevronDown, FileText,
+  AlertCircle, Archive, Bell, BookOpenText, Check, ChevronDown, FileText,
   FolderKanban, GitCompareArrows, Languages, LayoutDashboard, LoaderCircle,
   MessageSquareText, MoreHorizontal, PanelLeftClose, Plus, RefreshCw, Search,
-  Settings, TestTube2, Users, X,
+  Pencil, Settings, TestTube2, Users, X,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -37,6 +37,7 @@ function excerpt(text?: string) {
 }
 
 export default function Home() {
+  const [projects, setProjects] = useState<Project[]>([]);
   const [project, setProject] = useState<Project | null>(null);
   const [requirements, setRequirements] = useState<Requirement[]>([]);
   const [selected, setSelected] = useState<Requirement | null>(null);
@@ -44,14 +45,19 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [editor, setEditor] = useState<"create" | "revision" | null>(null);
+  const [projectEditor, setProjectEditor] = useState<"create" | "edit" | null>(null);
+  const [projectMenuOpen, setProjectMenuOpen] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (preferredProjectId?: string) => {
     setLoading(true);
     setError(null);
     try {
-      const projects = await bridgeFlowApi.listProjects();
-      const activeProject = projects[0] ?? null;
+      const activeProjects = await bridgeFlowApi.listProjects();
+      setProjects(activeProjects);
+      const activeProject = activeProjects.find((item) => item.id === preferredProjectId)
+        ?? activeProjects[0]
+        ?? null;
       setProject(activeProject);
       if (!activeProject) { setRequirements([]); setSelected(null); return; }
       const items = await bridgeFlowApi.listRequirements(activeProject.id);
@@ -66,6 +72,47 @@ export default function Home() {
     const initialLoad = window.setTimeout(() => void load(), 0);
     return () => window.clearTimeout(initialLoad);
   }, [load]);
+
+  async function selectProject(nextProject: Project) {
+    setProjectMenuOpen(false);
+    await load(nextProject.id);
+  }
+
+  async function submitProject(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    setSaving(true);
+    setError(null);
+    try {
+      const result = projectEditor === "create"
+        ? await bridgeFlowApi.createProject({
+            code: String(form.get("code")),
+            name: String(form.get("name")),
+            customerName: String(form.get("customerName")),
+          })
+        : await bridgeFlowApi.updateProject(project!.id, {
+            name: String(form.get("name")),
+            customerName: String(form.get("customerName")),
+          });
+      setProjectEditor(null);
+      await load(result.id);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Không thể lưu project.");
+    } finally { setSaving(false); }
+  }
+
+  async function archiveCurrentProject() {
+    if (!project || !window.confirm(`Archive project ${project.code}?`)) return;
+    setSaving(true);
+    setError(null);
+    try {
+      await bridgeFlowApi.archiveProject(project.id);
+      setProjectMenuOpen(false);
+      await load();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Không thể archive project.");
+    } finally { setSaving(false); }
+  }
 
   const filtered = useMemo(() => {
     const keyword = query.trim().toLocaleLowerCase();
@@ -131,7 +178,18 @@ export default function Home() {
 
       <div className="mx-auto flex min-h-[calc(100vh-4rem)] max-w-[1800px]">
         <aside className="hidden w-64 shrink-0 border-r border-slate-200 bg-[#f8fafc] p-4 lg:flex lg:flex-col">
-          <div className="mb-5 flex w-full items-center gap-3 rounded-xl border border-slate-200 bg-white p-3 text-left shadow-sm"><div className="grid size-9 place-items-center rounded-lg bg-[#e8f0f7] text-sm font-bold text-[#123a63]">EC</div><div className="min-w-0 flex-1"><p className="truncate text-sm font-semibold">{project?.name ?? "Workspace"}</p><p className="truncate text-xs text-slate-500">{project?.customerName ?? "Chưa chọn project"}</p></div><ChevronDown className="size-4 text-slate-400" /></div>
+          <div className="relative mb-5">
+            <button onClick={() => setProjectMenuOpen((open) => !open)} className="flex w-full items-center gap-3 rounded-xl border border-slate-200 bg-white p-3 text-left shadow-sm transition hover:border-slate-300">
+              <div className="grid size-9 place-items-center rounded-lg bg-[#e8f0f7] text-xs font-bold text-[#123a63]">{project?.code.slice(0, 2) ?? "PJ"}</div>
+              <div className="min-w-0 flex-1"><p className="truncate text-sm font-semibold">{project?.name ?? "Chọn project"}</p><p className="truncate text-xs text-slate-500">{project?.customerName ?? `${projects.length} project đang hoạt động`}</p></div>
+              <ChevronDown className={`size-4 text-slate-400 transition ${projectMenuOpen ? "rotate-180" : ""}`} />
+            </button>
+            {projectMenuOpen && <div className="absolute left-0 right-0 top-[calc(100%+8px)] z-40 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl">
+              <div className="max-h-64 overflow-y-auto p-1.5">{projects.map((item) => <button key={item.id} onClick={() => void selectProject(item)} className={`flex w-full items-center gap-3 rounded-lg p-2.5 text-left ${item.id === project?.id ? "bg-[#edf4fa]" : "hover:bg-slate-50"}`}><div className="grid size-8 shrink-0 place-items-center rounded-lg bg-slate-100 text-[11px] font-bold text-slate-600">{item.code.slice(0, 2)}</div><div className="min-w-0"><p className="truncate text-sm font-medium">{item.name}</p><p className="truncate text-xs text-slate-400">{item.code} · {item.requirementCount} requirements</p></div></button>)}</div>
+              <div className="grid grid-cols-2 gap-1 border-t border-slate-100 p-1.5"><Button variant="ghost" size="sm" onClick={() => { setProjectMenuOpen(false); setProjectEditor("create"); }}><Plus /> Tạo mới</Button><Button variant="ghost" size="sm" disabled={!project} onClick={() => { setProjectMenuOpen(false); setProjectEditor("edit"); }}><Pencil /> Chỉnh sửa</Button></div>
+              {project && <div className="border-t border-slate-100 p-1.5"><Button variant="ghost" size="sm" disabled={saving} onClick={() => void archiveCurrentProject()} className="w-full justify-start text-red-600 hover:bg-red-50 hover:text-red-700"><Archive /> Archive project</Button></div>}
+            </div>}
+          </div>
           <nav className="space-y-1">{nav.map(([Icon, label]) => <button key={label} className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition ${label === "Requirements" ? "bg-[#e7eff7] text-[#123a63]" : "text-slate-600 hover:bg-white"}`}><Icon className="size-[18px]" />{label}{label === "Requirements" && <span className="ml-auto rounded-md bg-white/80 px-1.5 py-0.5 text-[11px] text-slate-500">{requirements.length}</span>}</button>)}</nav>
           <div className="mt-6 border-t border-slate-200 pt-5"><p className="mb-2 px-3 text-[11px] font-bold uppercase tracking-wider text-slate-400">Không gian làm việc</p><button className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-600"><Users className="size-[18px]" /> Thành viên</button><button className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-600"><Settings className="size-[18px]" /> Cài đặt</button></div>
         </aside>
@@ -139,7 +197,7 @@ export default function Home() {
         <section className="min-w-0 flex-1 p-4 md:p-6 xl:p-8">
           <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between"><div><div className="mb-2 flex items-center gap-2 text-xs font-medium text-slate-500"><FolderKanban className="size-3.5" /> {project?.name ?? "Project"} <span>/</span> Requirements</div><h1 className="text-2xl font-bold tracking-tight md:text-3xl">Phân tích yêu cầu</h1><p className="mt-1 text-sm text-slate-500">Dữ liệu song ngữ được đọc trực tiếp từ PostgreSQL qua Spring Boot API.</p></div><div className="flex gap-2"><Button variant="outline" className="border-slate-200 bg-white"><PanelLeftClose /> Traceability</Button><Button disabled={!project} onClick={() => setEditor("create")} className="bg-[#123a63] hover:bg-[#0d2e50]"><Plus /> Thêm yêu cầu</Button></div></div>
           {error && <div className="mb-4 flex items-center gap-3 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700"><AlertCircle className="size-4 shrink-0" /><span className="flex-1">{error}</span><Button variant="ghost" size="sm" onClick={() => void load()}><RefreshCw /> Thử lại</Button></div>}
-          {loading ? <div className="grid min-h-96 place-items-center rounded-2xl border border-slate-200 bg-white"><div className="text-center text-sm text-slate-500"><LoaderCircle className="mx-auto mb-3 size-6 animate-spin text-[#2878ad]" />Đang tải workspace…</div></div> : !project ? <EmptyState title="Chưa có project" description="Tạo project qua API để bắt đầu quản lý requirement." /> : (
+          {loading ? <div className="grid min-h-96 place-items-center rounded-2xl border border-slate-200 bg-white"><div className="text-center text-sm text-slate-500"><LoaderCircle className="mx-auto mb-3 size-6 animate-spin text-[#2878ad]" />Đang tải workspace…</div></div> : !project ? <EmptyState title="Chưa có project" description="Tạo project đầu tiên để bắt đầu quản lý requirement." action={<Button onClick={() => setProjectEditor("create")} className="mt-4 bg-[#123a63] hover:bg-[#0d2e50]"><Plus /> Tạo project</Button>} /> : (
             <div className="grid gap-4 xl:grid-cols-[minmax(350px,0.92fr)_minmax(520px,1.45fr)]">
               <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"><div className="flex items-center gap-2 border-b border-slate-200 p-3"><div className="relative min-w-0 flex-1"><Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Tìm requirement..." className="h-9 w-full rounded-lg border border-slate-200 bg-slate-50 pl-9 pr-3 text-sm outline-none focus:border-[#2878ad]" /></div></div><div className="divide-y divide-slate-100">{filtered.length === 0 ? <p className="p-8 text-center text-sm text-slate-500">Không tìm thấy requirement.</p> : filtered.map((item) => <button key={item.id} onClick={() => void selectRequirement(item)} className={`w-full border-l-[3px] p-4 pl-[13px] text-left transition hover:bg-slate-50 ${selected?.id === item.id ? "border-[#2878ad] bg-[#f2f7fb]" : "border-transparent"}`}><div className="mb-2 flex items-center justify-between gap-2"><span className="font-mono text-xs font-semibold text-[#2878ad]">{item.displayKey}</span><StatusBadge status={item.status} /></div><p lang="ja" className="line-clamp-1 text-sm font-semibold text-slate-900">{excerpt(item.latestRevision?.japaneseText)}</p><p className="mt-1 line-clamp-1 text-sm text-slate-500">{excerpt(item.latestRevision?.vietnameseText)}</p><p className="mt-2 text-xs text-slate-400">Revision {item.latestRevision?.revisionNumber ?? 0}</p></button>)}</div></section>
               {selected ? <RequirementDetail requirement={selected} saving={saving} onEdit={() => setEditor("revision")} onConfirm={() => void confirmLatest()} /> : <EmptyState title="Chưa có requirement" description="Thêm requirement đầu tiên cho project này." />}
@@ -148,6 +206,7 @@ export default function Home() {
         </section>
       </div>
       {editor && <Editor mode={editor} requirement={selected} saving={saving} onClose={() => setEditor(null)} onSubmit={submitEditor} />}
+      {projectEditor && <ProjectEditor mode={projectEditor} project={project} saving={saving} onClose={() => setProjectEditor(null)} onSubmit={submitProject} />}
     </main>
   );
 }
@@ -162,8 +221,12 @@ function LanguageCard({ label, lang, text, translated = false }: { label: string
   return <article className={`rounded-xl border p-4 ${translated ? "border-[#dbe7f1] bg-[#f4f8fb]" : "border-slate-200 bg-slate-50/70"}`}><span className={`text-xs font-bold uppercase tracking-wider ${translated ? "text-[#436987]" : "text-slate-500"}`}>{label}</span><p lang={lang} className="mt-3 text-[15px] font-medium leading-7 text-slate-800">{text ?? "Chưa có nội dung"}</p></article>;
 }
 
-function EmptyState({ title, description }: { title: string; description: string }) {
-  return <div className="grid min-h-80 place-items-center rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center"><div><BookOpenText className="mx-auto mb-3 size-8 text-slate-300" /><h2 className="font-semibold">{title}</h2><p className="mt-1 text-sm text-slate-500">{description}</p></div></div>;
+function EmptyState({ title, description, action }: { title: string; description: string; action?: ReactNode }) {
+  return <div className="grid min-h-80 place-items-center rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center"><div><BookOpenText className="mx-auto mb-3 size-8 text-slate-300" /><h2 className="font-semibold">{title}</h2><p className="mt-1 text-sm text-slate-500">{description}</p>{action}</div></div>;
+}
+
+function ProjectEditor({ mode, project, saving, onClose, onSubmit }: { mode: "create" | "edit"; project: Project | null; saving: boolean; onClose: () => void; onSubmit: (event: FormEvent<HTMLFormElement>) => void }) {
+  return <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/35 p-4 backdrop-blur-sm" role="dialog" aria-modal="true"><form onSubmit={onSubmit} className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl"><div className="flex items-start justify-between"><div><h2 className="text-lg font-bold">{mode === "create" ? "Tạo project" : "Chỉnh sửa project"}</h2><p className="mt-1 text-sm text-slate-500">Workspace riêng cho requirement và lịch sử revision.</p></div><Button type="button" variant="ghost" size="icon-sm" onClick={onClose}><X /></Button></div><div className="mt-5 space-y-4">{mode === "create" && <label className="block text-sm font-medium">Mã project<input name="code" required maxLength={40} placeholder="EC-RENEWAL" className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 px-3 font-mono uppercase outline-none focus:border-[#2878ad]" /></label>}<label className="block text-sm font-medium">Tên project<input name="name" required maxLength={160} defaultValue={mode === "edit" ? project?.name : ""} placeholder="EC Portal Renewal" className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 px-3 outline-none focus:border-[#2878ad]" /></label><label className="block text-sm font-medium">Khách hàng<input name="customerName" maxLength={160} defaultValue={mode === "edit" ? project?.customerName ?? "" : ""} placeholder="株式会社みらい" className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 px-3 outline-none focus:border-[#2878ad]" /></label></div><div className="mt-6 flex justify-end gap-2"><Button type="button" variant="outline" onClick={onClose}>Hủy</Button><Button disabled={saving} className="bg-[#123a63] hover:bg-[#0d2e50]">{saving && <LoaderCircle className="animate-spin" />} {mode === "create" ? "Tạo project" : "Lưu thay đổi"}</Button></div></form></div>;
 }
 
 function Editor({ mode, requirement, saving, onClose, onSubmit }: { mode: "create" | "revision"; requirement: Requirement | null; saving: boolean; onClose: () => void; onSubmit: (event: FormEvent<HTMLFormElement>) => void }) {

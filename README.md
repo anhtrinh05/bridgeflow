@@ -5,6 +5,7 @@ AI-assisted requirements workspace for Japanese–Vietnamese software teams.
 ## Current product slice
 
 - Live Project and Requirement REST API backed by PostgreSQL
+- Project switcher with create, edit, and archive workflows
 - Stable requirement identity with append-only bilingual revisions
 - BrSE review/confirmation workflow and revision history
 - Synthetic Japanese–Vietnamese demo workspace (no customer data)

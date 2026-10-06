@@ -2,6 +2,7 @@ package com.bridgeflow.api.project.application;
 
 import static com.bridgeflow.api.project.api.ProjectModels.CreateProjectRequest;
 import static com.bridgeflow.api.project.api.ProjectModels.ProjectResponse;
+import static com.bridgeflow.api.project.api.ProjectModels.UpdateProjectRequest;
 
 import java.util.List;
 import java.util.Locale;
@@ -12,6 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.bridgeflow.api.common.ResourceNotFoundException;
 import com.bridgeflow.api.project.domain.Project;
+import com.bridgeflow.api.project.domain.ProjectStatus;
 import com.bridgeflow.api.project.persistence.ProjectRepository;
 import com.bridgeflow.api.requirement.persistence.RequirementRepository;
 
@@ -27,8 +29,11 @@ public class ProjectService {
         this.requirementRepository = requirementRepository;
     }
 
-    public List<ProjectResponse> list() {
-        return projectRepository.findAllByOrderByUpdatedAtDesc().stream().map(this::toResponse).toList();
+    public List<ProjectResponse> list(boolean includeArchived) {
+        var projects = includeArchived
+            ? projectRepository.findAllByOrderByUpdatedAtDesc()
+            : projectRepository.findAllByStatusOrderByUpdatedAtDesc(ProjectStatus.ACTIVE);
+        return projects.stream().map(this::toResponse).toList();
     }
 
     public ProjectResponse get(UUID projectId) {
@@ -42,6 +47,23 @@ public class ProjectService {
             throw new IllegalStateException("Mã project " + code + " đã tồn tại.");
         }
         return toResponse(projectRepository.save(new Project(code, request.name(), request.customerName())));
+    }
+
+    @Transactional
+    public ProjectResponse update(UUID projectId, UpdateProjectRequest request) {
+        var project = findProject(projectId);
+        if (project.getStatus() == ProjectStatus.ARCHIVED) {
+            throw new IllegalStateException("Project đã archive nên không thể chỉnh sửa.");
+        }
+        project.updateDetails(request.name(), request.customerName());
+        return toResponse(projectRepository.saveAndFlush(project));
+    }
+
+    @Transactional
+    public ProjectResponse archive(UUID projectId) {
+        var project = findProject(projectId);
+        project.archive();
+        return toResponse(projectRepository.saveAndFlush(project));
     }
 
     public Project findProject(UUID projectId) {

@@ -18,6 +18,12 @@ public final class ProjectModels {
     ) {
     }
 
+    public record UpdateProjectRequest(
+        @NotBlank @Size(max = 160) String name,
+        @Size(max = 160) String customerName
+    ) {
+    }
+
     public record ProjectResponse(
         UUID id,
         String code,

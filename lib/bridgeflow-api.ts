@@ -49,6 +49,12 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 export const bridgeFlowApi = {
   listProjects: () => request<Project[]>("/projects"),
+  createProject: (body: { code: string; name: string; customerName: string }) =>
+    request<Project>("/projects", { method: "POST", body: JSON.stringify(body) }),
+  updateProject: (projectId: string, body: { name: string; customerName: string }) =>
+    request<Project>(`/projects/${projectId}`, { method: "PATCH", body: JSON.stringify(body) }),
+  archiveProject: (projectId: string) =>
+    request<Project>(`/projects/${projectId}/archive`, { method: "POST", body: "{}" }),
   listRequirements: (projectId: string) => request<Requirement[]>(`/projects/${projectId}/requirements`),
   getRequirement: (requirementId: string) => request<Requirement>(`/requirements/${requirementId}`),
   createRequirement: (projectId: string, body: { displayKey: string; japaneseText: string; vietnameseText: string }) =>

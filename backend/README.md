@@ -36,6 +36,8 @@ deployed environments.
 | --- | --- | --- |
 | `GET` / `POST` | `/api/v1/projects` | List or create projects |
 | `GET` | `/api/v1/projects/{projectId}` | Read a project |
+| `PATCH` | `/api/v1/projects/{projectId}` | Update project details |
+| `POST` | `/api/v1/projects/{projectId}/archive` | Archive a project |
 | `GET` / `POST` | `/api/v1/projects/{projectId}/requirements` | List or create requirements |
 | `GET` | `/api/v1/requirements/{requirementId}` | Read a requirement and its revision history |
 | `POST` | `/api/v1/requirements/{requirementId}/revisions` | Add a bilingual revision |

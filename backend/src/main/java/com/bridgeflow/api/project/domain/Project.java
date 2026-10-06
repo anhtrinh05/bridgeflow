@@ -92,6 +92,15 @@ public class Project {
         return updatedAt;
     }
 
+    public void updateDetails(String name, String customerName) {
+        this.name = requireText(name, "name");
+        this.customerName = normalizeOptionalText(customerName);
+    }
+
+    public void archive() {
+        status = ProjectStatus.ARCHIVED;
+    }
+
     private static String requireText(String value, String fieldName) {
         var normalized = Objects.requireNonNull(value, fieldName + " is required").trim();
         if (normalized.isEmpty()) {
