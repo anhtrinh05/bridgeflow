@@ -26,11 +26,23 @@ Environment variables can override the development defaults:
 | `DB_USERNAME` | `bridgeflow` |
 | `DB_PASSWORD` | `bridgeflow` |
 | `SERVER_PORT` | `8080` |
+| `BRIDGEFLOW_DEMO_PASSWORD` | `bridgeflow-demo` |
 
 The password above is only for the local Docker database. Use a secret manager in
 deployed environments.
 
 ## REST API
+
+Except for login, health checks, and API documentation, endpoints require an
+`Authorization: Bearer <token>` header. The `dev` profile creates
+`brse@bridgeflow.local` with the password configured by
+`BRIDGEFLOW_DEMO_PASSWORD` and grants it the `BRSE` role on the synthetic project.
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| `POST` | `/api/v1/auth/login` | Exchange email/password for an eight-hour opaque access token |
+| `GET` | `/api/v1/auth/me` | Read the authenticated user |
+| `POST` | `/api/v1/auth/logout` | Revoke the current access token |
 
 | Method | Path | Purpose |
 | --- | --- | --- |
@@ -47,6 +59,12 @@ deployed environments.
 Requirement listing supports `status`, `query`, `page`, `size`, `sortBy`,
 `direction`, and `includeArchived` query parameters. Archived requirements are
 excluded by default and retain their stable ID and complete revision history.
+
+Project roles are enforced by the API: `ADMIN` manages the project,
+`ADMIN`/`BRSE` confirm and archive requirements,
+`ADMIN`/`BRSE`/`DEVELOPER` create requirements and revisions, and `VIEWER` has
+read-only access. Project and requirement mutations create audit events tied to
+the authenticated user.
 
 Interactive documentation is available at `/swagger-ui.html`, and the machine-readable
 OpenAPI contract used by the frontend generator is available at `/v3/api-docs`.

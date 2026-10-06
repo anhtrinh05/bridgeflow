@@ -20,6 +20,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.core.env.Environment;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,7 +28,14 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 
 import jakarta.persistence.EntityManager;
 
+import com.bridgeflow.api.audit.AuditAction;
+import com.bridgeflow.api.audit.AuditEventRepository;
+import com.bridgeflow.api.auth.domain.AppUser;
+import com.bridgeflow.api.auth.persistence.AppUserRepository;
 import com.bridgeflow.api.project.domain.Project;
+import com.bridgeflow.api.project.membership.ProjectMember;
+import com.bridgeflow.api.project.membership.ProjectMemberRepository;
+import com.bridgeflow.api.project.membership.ProjectRole;
 import com.bridgeflow.api.project.persistence.ProjectRepository;
 import com.bridgeflow.api.requirement.domain.ChangeType;
 import com.bridgeflow.api.requirement.domain.Requirement;
@@ -86,6 +94,20 @@ class RequirementPersistenceIntegrationTest {
 
     @Autowired
     private ObjectMapper objectMapper;
+
+    @Autowired
+    private AppUserRepository userRepository;
+
+    @Autowired
+    private ProjectMemberRepository memberRepository;
+
+    @Autowired
+    private AuditEventRepository auditEventRepository;
+
+    @Autowired
+    private PasswordEncoder passwordEncoder;
+
+    private String accessToken;
 
     @Test
     @Transactional
@@ -191,6 +213,7 @@ class RequirementPersistenceIntegrationTest {
 
     @Test
     void createsRevisesAndConfirmsARequirementThroughTheRestApi() throws Exception {
+        var authenticatedUserId = loginTestUser();
         var suffix = UUID.randomUUID().toString().substring(0, 8).toUpperCase();
         var project = sendJson("POST", "/api/v1/projects", """
             {"code":"API-%s","name":"API integration project","customerName":"架空株式会社"}
@@ -217,11 +240,11 @@ class RequirementPersistenceIntegrationTest {
         assertThat(requirement.required("latestRevision").required("revisionNumber").asInt()).isEqualTo(2);
 
         requirement = sendJson("POST", "/api/v1/requirements/" + requirementId
-            + "/revisions/" + revisionId + "/confirm", """
-            {"reviewerId":"40000000-0000-4000-8000-000000000099"}
-            """, 200);
+            + "/revisions/" + revisionId + "/confirm", "{}", 200);
         assertThat(requirement.required("status").asText()).isEqualTo("CONFIRMED");
         assertThat(requirement.required("currentRevisionId").asText()).isEqualTo(revisionId);
+        assertThat(requirement.required("latestRevision").required("confirmedBy").asText())
+            .isEqualTo(authenticatedUserId.toString());
 
         var detail = sendJson("GET", "/api/v1/requirements/" + requirementId, null, 200);
         assertThat(detail.required("revisions")).hasSize(2);
@@ -263,10 +286,23 @@ class RequirementPersistenceIntegrationTest {
         assertThat(activeProjects.toString()).doesNotContain(projectId);
         var allProjects = sendJson("GET", "/api/v1/projects?includeArchived=true", null, 200);
         assertThat(allProjects.toString()).contains(projectId);
+
+        assertThat(auditEventRepository.findAllByProjectIdOrderByOccurredAtDesc(UUID.fromString(projectId)))
+            .extracting(event -> event.getAction())
+            .contains(
+                AuditAction.PROJECT_CREATED,
+                AuditAction.PROJECT_UPDATED,
+                AuditAction.PROJECT_ARCHIVED,
+                AuditAction.REQUIREMENT_CREATED,
+                AuditAction.REQUIREMENT_REVISED,
+                AuditAction.REQUIREMENT_CONFIRMED,
+                AuditAction.REQUIREMENT_ARCHIVED
+            );
     }
 
     @Test
     void returnsStructuredValidationErrors() throws Exception {
+        loginTestUser();
         var response = sendJson("POST", "/api/v1/projects", """
             {"code":"","name":"","customerName":"demo"}
             """, 400);
@@ -275,9 +311,73 @@ class RequirementPersistenceIntegrationTest {
         assertThat(response.required("fields").has("name")).isTrue();
     }
 
+    @Test
+    void authenticatesUsersAndEnforcesProjectRoles() throws Exception {
+        var unauthenticated = sendJsonUnauthenticated("GET", "/api/v1/projects", null, 401);
+        assertThat(unauthenticated.required("code").asText()).isEqualTo("UNAUTHENTICATED");
+
+        loginTestUser();
+        var suffix = UUID.randomUUID().toString().substring(0, 8).toUpperCase();
+        var projectResponse = sendJson("POST", "/api/v1/projects", """
+            {"code":"ROLE-%s","name":"Role integration project","customerName":null}
+            """.formatted(suffix), 201);
+        var projectId = UUID.fromString(projectResponse.required("id").asText());
+        assertThat(projectResponse.required("role").asText()).isEqualTo("ADMIN");
+
+        var viewerPassword = "viewer-password";
+        var viewer = userRepository.save(new AppUser(
+            "viewer-" + UUID.randomUUID() + "@bridgeflow.local",
+            "Test Viewer",
+            passwordEncoder.encode(viewerPassword)
+        ));
+        var project = projectRepository.findById(projectId).orElseThrow();
+        memberRepository.save(new ProjectMember(project, viewer, ProjectRole.VIEWER));
+
+        login(viewer.getEmail(), viewerPassword);
+        var visibleProjects = sendJson("GET", "/api/v1/projects", null, 200);
+        assertThat(visibleProjects.toString()).contains(projectId.toString(), "\"role\":\"VIEWER\"");
+        var forbidden = sendJson("PATCH", "/api/v1/projects/" + projectId, """
+            {"name":"Forbidden update","customerName":null}
+            """, 403);
+        assertThat(forbidden.required("code").asText()).isEqualTo("ACCESS_DENIED");
+    }
+
+    private UUID loginTestUser() throws Exception {
+        var password = "integration-password";
+        var user = userRepository.save(new AppUser(
+            "integration-" + UUID.randomUUID() + "@bridgeflow.local",
+            "Integration BrSE",
+            passwordEncoder.encode(password)
+        ));
+        login(user.getEmail(), password);
+        return user.getId();
+    }
+
+    private void login(String email, String password) throws Exception {
+        var response = sendJsonUnauthenticated("POST", "/api/v1/auth/login", """
+            {"email":"%s","password":"%s"}
+            """.formatted(email, password), 200);
+        accessToken = response.required("accessToken").asText();
+        assertThat(accessToken).isNotBlank();
+        assertThat(response.required("user").required("email").asText()).isEqualTo(email);
+    }
+
     private JsonNode sendJson(String method, String path, String body, int expectedStatus) throws Exception {
+        return sendJson(method, path, body, expectedStatus, true);
+    }
+
+    private JsonNode sendJsonUnauthenticated(String method, String path, String body, int expectedStatus)
+        throws Exception {
+        return sendJson(method, path, body, expectedStatus, false);
+    }
+
+    private JsonNode sendJson(String method, String path, String body, int expectedStatus, boolean authenticated)
+        throws Exception {
         var baseUrl = "http://127.0.0.1:" + environment.getRequiredProperty("local.server.port");
         var builder = HttpRequest.newBuilder(URI.create(baseUrl + path)).timeout(Duration.ofSeconds(10));
+        if (authenticated && accessToken != null) {
+            builder.header("Authorization", "Bearer " + accessToken);
+        }
         if (body == null) {
             builder.GET();
         } else {

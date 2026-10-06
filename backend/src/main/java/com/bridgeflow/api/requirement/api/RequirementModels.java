@@ -30,9 +30,6 @@ public final class RequirementModels {
     ) {
     }
 
-    public record ConfirmRevisionRequest(@NotNull UUID reviewerId) {
-    }
-
     public record RevisionResponse(
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) UUID id,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) int revisionNumber,

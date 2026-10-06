@@ -4,6 +4,7 @@ import java.net.URI;
 import java.util.UUID;
 
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -12,7 +13,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.bridgeflow.api.requirement.api.RequirementModels.ConfirmRevisionRequest;
+import com.bridgeflow.api.auth.application.CurrentUser;
 import com.bridgeflow.api.requirement.api.RequirementModels.CreateRequirementRequest;
 import com.bridgeflow.api.requirement.api.RequirementModels.CreateRevisionRequest;
 import com.bridgeflow.api.requirement.api.RequirementModels.RequirementResponse;
@@ -24,12 +25,14 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("/api/v1")
 @Tag(name = "Requirements", description = "Requirement revisions and review lifecycle")
+@SecurityRequirement(name = "bearerAuth")
 public class RequirementController {
 
     private final RequirementService requirementService;
@@ -41,6 +44,7 @@ public class RequirementController {
     @GetMapping("/projects/{projectId}/requirements")
     @Operation(operationId = "listRequirements", summary = "Search and page project requirements")
     public RequirementPageResponse list(
+        @AuthenticationPrincipal CurrentUser user,
         @PathVariable UUID projectId,
         @RequestParam(required = false) RequirementStatus status,
         @RequestParam(defaultValue = "false") boolean includeArchived,
@@ -56,7 +60,7 @@ public class RequirementController {
             throw new IllegalArgumentException("page phải >= 0 và size phải từ 1 đến 100.");
         }
         return requirementService.list(
-            projectId, status, includeArchived, query, page, size, sortBy, direction
+            user.id(), projectId, status, includeArchived, query, page, size, sortBy, direction
         );
     }
 
@@ -64,24 +68,31 @@ public class RequirementController {
     @Operation(operationId = "createRequirement", summary = "Create a requirement with its first revision")
     @ApiResponse(responseCode = "201", description = "Requirement created")
     public ResponseEntity<RequirementResponse> create(
-        @PathVariable UUID projectId, @Valid @RequestBody CreateRequirementRequest request
+        @AuthenticationPrincipal CurrentUser user,
+        @PathVariable UUID projectId,
+        @Valid @RequestBody CreateRequirementRequest request
     ) {
-        var requirement = requirementService.create(projectId, request);
+        var requirement = requirementService.create(user.id(), projectId, request);
         return ResponseEntity.created(URI.create("/api/v1/requirements/" + requirement.id())).body(requirement);
     }
 
     @GetMapping("/requirements/{requirementId}")
     @Operation(operationId = "getRequirement", summary = "Get a requirement and its revision history")
-    public RequirementResponse get(@PathVariable UUID requirementId) {
-        return requirementService.get(requirementId);
+    public RequirementResponse get(
+        @AuthenticationPrincipal CurrentUser user,
+        @PathVariable UUID requirementId
+    ) {
+        return requirementService.get(user.id(), requirementId);
     }
 
     @PostMapping("/requirements/{requirementId}/revisions")
     @Operation(operationId = "addRequirementRevision", summary = "Add a requirement revision")
     public ResponseEntity<RequirementResponse> addRevision(
-        @PathVariable UUID requirementId, @Valid @RequestBody CreateRevisionRequest request
+        @AuthenticationPrincipal CurrentUser user,
+        @PathVariable UUID requirementId,
+        @Valid @RequestBody CreateRevisionRequest request
     ) {
-        return ResponseEntity.ok(requirementService.addRevision(requirementId, request));
+        return ResponseEntity.ok(requirementService.addRevision(user.id(), requirementId, request));
     }
 
     @PostMapping("/requirements/{requirementId}/revisions/{revisionId}/confirm")
@@ -89,14 +100,17 @@ public class RequirementController {
     public RequirementResponse confirm(
         @PathVariable UUID requirementId,
         @PathVariable UUID revisionId,
-        @Valid @RequestBody ConfirmRevisionRequest request
+        @AuthenticationPrincipal CurrentUser user
     ) {
-        return requirementService.confirm(requirementId, revisionId, request);
+        return requirementService.confirm(user.id(), requirementId, revisionId);
     }
 
     @PostMapping("/requirements/{requirementId}/archive")
     @Operation(operationId = "archiveRequirement", summary = "Archive a requirement")
-    public RequirementResponse archive(@PathVariable UUID requirementId) {
-        return requirementService.archive(requirementId);
+    public RequirementResponse archive(
+        @AuthenticationPrincipal CurrentUser user,
+        @PathVariable UUID requirementId
+    ) {
+        return requirementService.archive(user.id(), requirementId);
     }
 }

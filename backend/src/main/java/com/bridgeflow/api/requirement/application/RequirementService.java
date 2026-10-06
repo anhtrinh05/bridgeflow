@@ -1,6 +1,5 @@
 package com.bridgeflow.api.requirement.application;
 
-import static com.bridgeflow.api.requirement.api.RequirementModels.ConfirmRevisionRequest;
 import static com.bridgeflow.api.requirement.api.RequirementModels.CreateRequirementRequest;
 import static com.bridgeflow.api.requirement.api.RequirementModels.CreateRevisionRequest;
 import static com.bridgeflow.api.requirement.api.RequirementModels.RequirementResponse;
@@ -17,7 +16,11 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.bridgeflow.api.audit.AuditAction;
+import com.bridgeflow.api.audit.AuditService;
 import com.bridgeflow.api.common.ResourceNotFoundException;
+import com.bridgeflow.api.project.membership.ProjectAccessService;
+import com.bridgeflow.api.project.membership.ProjectRole;
 import com.bridgeflow.api.project.persistence.ProjectRepository;
 import com.bridgeflow.api.project.domain.ProjectStatus;
 import com.bridgeflow.api.requirement.domain.ChangeType;
@@ -34,18 +37,25 @@ public class RequirementService {
     private final ProjectRepository projectRepository;
     private final RequirementRepository requirementRepository;
     private final RequirementRevisionRepository revisionRepository;
+    private final ProjectAccessService accessService;
+    private final AuditService auditService;
 
     public RequirementService(
         ProjectRepository projectRepository,
         RequirementRepository requirementRepository,
-        RequirementRevisionRepository revisionRepository
+        RequirementRevisionRepository revisionRepository,
+        ProjectAccessService accessService,
+        AuditService auditService
     ) {
         this.projectRepository = projectRepository;
         this.requirementRepository = requirementRepository;
         this.revisionRepository = revisionRepository;
+        this.accessService = accessService;
+        this.auditService = auditService;
     }
 
     public RequirementPageResponse list(
+        UUID userId,
         UUID projectId,
         RequirementStatus status,
         boolean includeArchived,
@@ -55,6 +65,7 @@ public class RequirementService {
         String sortBy,
         String direction
     ) {
+        accessService.requireMember(projectId, userId);
         requireProject(projectId);
         var sortProperty = switch (sortBy) {
             case "displayKey", "status", "updatedAt" -> sortBy;
@@ -74,12 +85,15 @@ public class RequirementService {
         );
     }
 
-    public RequirementResponse get(UUID requirementId) {
-        return toResponse(findRequirement(requirementId), true);
+    public RequirementResponse get(UUID userId, UUID requirementId) {
+        var requirement = findRequirement(requirementId);
+        accessService.requireMember(requirement.getProject().getId(), userId);
+        return toResponse(requirement, true);
     }
 
     @Transactional
-    public RequirementResponse create(UUID projectId, CreateRequirementRequest request) {
+    public RequirementResponse create(UUID userId, UUID projectId, CreateRequirementRequest request) {
+        accessService.requireRole(projectId, userId, ProjectRole.ADMIN, ProjectRole.BRSE, ProjectRole.DEVELOPER);
         var project = requireProject(projectId);
         if (project.getStatus() == ProjectStatus.ARCHIVED) {
             throw new IllegalStateException("Project đã archive nên không thể thêm requirement.");
@@ -90,29 +104,37 @@ public class RequirementService {
         }
         var requirement = requirementRepository.save(new Requirement(project, displayKey));
         revisionRepository.save(new RequirementRevision(
-            requirement, 1, request.japaneseText(), request.vietnameseText(), ChangeType.ADDED
+            requirement, 1, request.japaneseText(), request.vietnameseText(), ChangeType.ADDED, userId
         ));
         requirement.markReviewing();
-        return toResponse(requirementRepository.save(requirement), true);
+        requirementRepository.save(requirement);
+        auditService.record(projectId, userId, AuditAction.REQUIREMENT_CREATED, "REQUIREMENT", requirement.getId());
+        return toResponse(requirement, true);
     }
 
     @Transactional
-    public RequirementResponse addRevision(UUID requirementId, CreateRevisionRequest request) {
+    public RequirementResponse addRevision(UUID userId, UUID requirementId, CreateRevisionRequest request) {
         var requirement = findRequirement(requirementId);
+        var projectId = requirement.getProject().getId();
+        accessService.requireRole(projectId, userId, ProjectRole.ADMIN, ProjectRole.BRSE, ProjectRole.DEVELOPER);
         requireActive(requirement);
         var revisionNumber = Math.toIntExact(revisionRepository.countByRequirementId(requirementId) + 1);
         revisionRepository.save(new RequirementRevision(
-            requirement, revisionNumber, request.japaneseText(), request.vietnameseText(), request.changeType()
+            requirement, revisionNumber, request.japaneseText(), request.vietnameseText(), request.changeType(), userId
         ));
         requirement.markReviewing();
-        return toResponse(requirementRepository.save(requirement), true);
+        requirementRepository.save(requirement);
+        auditService.record(projectId, userId, AuditAction.REQUIREMENT_REVISED, "REQUIREMENT", requirementId);
+        return toResponse(requirement, true);
     }
 
     @Transactional
     public RequirementResponse confirm(
-        UUID requirementId, UUID revisionId, ConfirmRevisionRequest request
+        UUID userId, UUID requirementId, UUID revisionId
     ) {
         var requirement = findRequirement(requirementId);
+        var projectId = requirement.getProject().getId();
+        accessService.requireRole(projectId, userId, ProjectRole.ADMIN, ProjectRole.BRSE);
         requireActive(requirement);
         var revision = revisionRepository.findByIdAndRequirementId(revisionId, requirementId)
             .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy revision thuộc requirement này."));
@@ -121,18 +143,23 @@ public class RequirementService {
         if (!latestRevision.getId().equals(revisionId)) {
             throw new IllegalStateException("Chỉ revision mới nhất mới có thể được xác nhận.");
         }
-        revision.confirm(request.reviewerId());
+        revision.confirm(userId);
         revisionRepository.saveAndFlush(revision);
         requirement.pointToRevision(revision);
         requirementRepository.save(requirement);
+        auditService.record(projectId, userId, AuditAction.REQUIREMENT_CONFIRMED, "REQUIREMENT_REVISION", revisionId);
         return toResponse(requirement, true);
     }
 
     @Transactional
-    public RequirementResponse archive(UUID requirementId) {
+    public RequirementResponse archive(UUID userId, UUID requirementId) {
         var requirement = findRequirement(requirementId);
+        var projectId = requirement.getProject().getId();
+        accessService.requireRole(projectId, userId, ProjectRole.ADMIN, ProjectRole.BRSE);
         requirement.archive();
-        return toResponse(requirementRepository.saveAndFlush(requirement), true);
+        requirementRepository.saveAndFlush(requirement);
+        auditService.record(projectId, userId, AuditAction.REQUIREMENT_ARCHIVED, "REQUIREMENT", requirementId);
+        return toResponse(requirement, true);
     }
 
     private com.bridgeflow.api.project.domain.Project requireProject(UUID projectId) {

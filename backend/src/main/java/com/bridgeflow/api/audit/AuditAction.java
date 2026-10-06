@@ -1,0 +1,11 @@
+package com.bridgeflow.api.audit;
+
+public enum AuditAction {
+    PROJECT_CREATED,
+    PROJECT_UPDATED,
+    PROJECT_ARCHIVED,
+    REQUIREMENT_CREATED,
+    REQUIREMENT_REVISED,
+    REQUIREMENT_CONFIRMED,
+    REQUIREMENT_ARCHIVED
+}

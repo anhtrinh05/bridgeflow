@@ -31,6 +31,7 @@ public final class ProjectModels {
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String name,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true) String customerName,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String status,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String role,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) long requirementCount,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) Instant createdAt,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) Instant updatedAt

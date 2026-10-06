@@ -4,15 +4,14 @@ import { FormEvent, ReactNode, useCallback, useEffect, useState } from "react";
 import {
   AlertCircle, Archive, Bell, BookOpenText, Check, ChevronDown, FileText,
   FolderKanban, GitCompareArrows, Languages, LayoutDashboard, LoaderCircle,
+  LogOut,
   MessageSquareText, MoreHorizontal, PanelLeftClose, Plus, RefreshCw, Search,
   Pencil, Settings, TestTube2, Users, X,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { bridgeFlowApi, Project, Requirement } from "@/lib/bridgeflow-api";
-
-const REVIEWER_ID = "40000000-0000-4000-8000-000000000001";
+import { AuthUser, bridgeFlowApi, Project, Requirement } from "@/lib/bridgeflow-api";
 const nav = [
   [LayoutDashboard, "Tổng quan"], [FileText, "Tài liệu"],
   [BookOpenText, "Requirements"], [MessageSquareText, "Q&A"],
@@ -38,6 +37,8 @@ function excerpt(text?: string) {
 }
 
 export default function Home() {
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [authReady, setAuthReady] = useState(false);
   const [projects, setProjects] = useState<Project[]>([]);
   const [project, setProject] = useState<Project | null>(null);
   const [requirements, setRequirements] = useState<Requirement[]>([]);
@@ -83,9 +84,52 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    const initialLoad = window.setTimeout(() => void load(), 0);
+    const initialLoad = window.setTimeout(() => {
+      void (async () => {
+        if (!bridgeFlowApi.hasSession()) {
+          setLoading(false);
+          setAuthReady(true);
+          return;
+        }
+        try {
+          setUser(await bridgeFlowApi.me());
+          await load();
+        } catch (cause) {
+          setError(cause instanceof Error ? cause.message : "Phiên đăng nhập không còn hợp lệ.");
+          setLoading(false);
+        } finally {
+          setAuthReady(true);
+        }
+      })();
+    }, 0);
     return () => window.clearTimeout(initialLoad);
   }, [load]);
+
+  async function submitLogin(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    setSaving(true);
+    setError(null);
+    try {
+      const result = await bridgeFlowApi.login({
+        email: String(form.get("email")), password: String(form.get("password")),
+      });
+      setUser(result.user);
+      await load();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Không thể đăng nhập.");
+    } finally { setSaving(false); }
+  }
+
+  async function logout() {
+    await bridgeFlowApi.logout();
+    setUser(null);
+    setProjects([]);
+    setProject(null);
+    setRequirements([]);
+    setSelected(null);
+    setError(null);
+  }
 
   async function selectProject(nextProject: Project) {
     setProjectMenuOpen(false);
@@ -236,18 +280,28 @@ export default function Home() {
     setSaving(true);
     setError(null);
     try {
-      const result = await bridgeFlowApi.confirmRevision(selected.id, selected.latestRevision.id, REVIEWER_ID);
+      const result = await bridgeFlowApi.confirmRevision(selected.id, selected.latestRevision.id);
       await refreshRequirement(result);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Không thể xác nhận revision.");
     } finally { setSaving(false); }
   }
 
+  if (!authReady) {
+    return <div className="grid min-h-screen place-items-center bg-[#f4f6f8]"><LoaderCircle className="size-7 animate-spin text-[#2878ad]" /></div>;
+  }
+  if (!user) {
+    return <LoginScreen saving={saving} error={error} onSubmit={submitLogin} />;
+  }
+
+  const canAdminProject = project?.role === "ADMIN";
+  const canEditRequirement = project ? ["ADMIN", "BRSE", "DEVELOPER"].includes(project.role) : false;
+
   return (
     <main className="min-h-screen bg-[#f4f6f8] text-slate-950">
       <header className="sticky top-0 z-30 flex h-16 items-center border-b border-slate-200 bg-white px-4 lg:px-6">
         <div className="flex w-64 items-center gap-3"><div className="grid size-9 place-items-center rounded-xl bg-[#123a63] text-white shadow-sm"><Languages className="size-5" /></div><div><p className="text-base font-bold tracking-tight">BridgeFlow</p><p className="text-[11px] font-medium tracking-wide text-slate-500">JP × VN REQUIREMENTS</p></div></div>
-        <div className="ml-auto flex items-center gap-2"><Badge variant="outline" className="hidden border-emerald-200 bg-emerald-50 text-emerald-700 sm:flex"><span className="size-1.5 rounded-full bg-emerald-500" />LIVE API</Badge><Button variant="ghost" size="icon-sm" aria-label="Thông báo"><Bell /></Button><div className="ml-1 grid size-8 place-items-center rounded-full bg-[#e8eef5] text-xs font-bold text-[#123a63]">TN</div></div>
+        <div className="ml-auto flex items-center gap-2"><Badge variant="outline" className="hidden border-emerald-200 bg-emerald-50 text-emerald-700 sm:flex"><span className="size-1.5 rounded-full bg-emerald-500" />LIVE API</Badge><Button variant="ghost" size="icon-sm" aria-label="Thông báo"><Bell /></Button><div className="hidden text-right sm:block"><p className="text-xs font-semibold">{user.displayName}</p><p className="text-[11px] text-slate-400">{user.email}</p></div><div className="ml-1 grid size-8 place-items-center rounded-full bg-[#e8eef5] text-xs font-bold text-[#123a63]">{user.displayName.split(/\s+/).map((part) => part[0]).slice(-2).join("").toUpperCase()}</div><Button variant="ghost" size="icon-sm" aria-label="Đăng xuất" onClick={() => void logout()}><LogOut /></Button></div>
       </header>
 
       <div className="mx-auto flex min-h-[calc(100vh-4rem)] max-w-[1800px]">
@@ -260,8 +314,8 @@ export default function Home() {
             </button>
             {projectMenuOpen && <div className="absolute left-0 right-0 top-[calc(100%+8px)] z-40 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl">
               <div className="max-h-64 overflow-y-auto p-1.5">{projects.map((item) => <button key={item.id} onClick={() => void selectProject(item)} className={`flex w-full items-center gap-3 rounded-lg p-2.5 text-left ${item.id === project?.id ? "bg-[#edf4fa]" : "hover:bg-slate-50"}`}><div className="grid size-8 shrink-0 place-items-center rounded-lg bg-slate-100 text-[11px] font-bold text-slate-600">{item.code.slice(0, 2)}</div><div className="min-w-0"><p className="truncate text-sm font-medium">{item.name}</p><p className="truncate text-xs text-slate-400">{item.code} · {item.requirementCount} requirements</p></div></button>)}</div>
-              <div className="grid grid-cols-2 gap-1 border-t border-slate-100 p-1.5"><Button variant="ghost" size="sm" onClick={() => { setProjectMenuOpen(false); setProjectEditor("create"); }}><Plus /> Tạo mới</Button><Button variant="ghost" size="sm" disabled={!project} onClick={() => { setProjectMenuOpen(false); setProjectEditor("edit"); }}><Pencil /> Chỉnh sửa</Button></div>
-              {project && <div className="border-t border-slate-100 p-1.5"><Button variant="ghost" size="sm" disabled={saving} onClick={() => void archiveCurrentProject()} className="w-full justify-start text-red-600 hover:bg-red-50 hover:text-red-700"><Archive /> Archive project</Button></div>}
+              <div className="grid grid-cols-2 gap-1 border-t border-slate-100 p-1.5"><Button variant="ghost" size="sm" onClick={() => { setProjectMenuOpen(false); setProjectEditor("create"); }}><Plus /> Tạo mới</Button><Button variant="ghost" size="sm" disabled={!canAdminProject} onClick={() => { setProjectMenuOpen(false); setProjectEditor("edit"); }}><Pencil /> Chỉnh sửa</Button></div>
+              {project && <div className="border-t border-slate-100 p-1.5"><Button variant="ghost" size="sm" disabled={saving || !canAdminProject} onClick={() => void archiveCurrentProject()} className="w-full justify-start text-red-600 hover:bg-red-50 hover:text-red-700"><Archive /> Archive project</Button></div>}
             </div>}
           </div>
           <nav className="space-y-1">{nav.map(([Icon, label]) => <button key={label} className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition ${label === "Requirements" ? "bg-[#e7eff7] text-[#123a63]" : "text-slate-600 hover:bg-white"}`}><Icon className="size-[18px]" />{label}{label === "Requirements" && <span className="ml-auto rounded-md bg-white/80 px-1.5 py-0.5 text-[11px] text-slate-500">{requirements.length}</span>}</button>)}</nav>
@@ -269,7 +323,7 @@ export default function Home() {
         </aside>
 
         <section className="min-w-0 flex-1 p-4 md:p-6 xl:p-8">
-          <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between"><div><div className="mb-2 flex items-center gap-2 text-xs font-medium text-slate-500"><FolderKanban className="size-3.5" /> {project?.name ?? "Project"} <span>/</span> Requirements</div><h1 className="text-2xl font-bold tracking-tight md:text-3xl">Phân tích yêu cầu</h1><p className="mt-1 text-sm text-slate-500">Dữ liệu song ngữ được đọc trực tiếp từ PostgreSQL qua Spring Boot API.</p></div><div className="flex gap-2"><Button variant="outline" className="border-slate-200 bg-white"><PanelLeftClose /> Traceability</Button><Button disabled={!project} onClick={() => setEditor("create")} className="bg-[#123a63] hover:bg-[#0d2e50]"><Plus /> Thêm yêu cầu</Button></div></div>
+          <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between"><div><div className="mb-2 flex items-center gap-2 text-xs font-medium text-slate-500"><FolderKanban className="size-3.5" /> {project?.name ?? "Project"} <span>/</span> Requirements {project && <Badge variant="outline">{project.role}</Badge>}</div><h1 className="text-2xl font-bold tracking-tight md:text-3xl">Phân tích yêu cầu</h1><p className="mt-1 text-sm text-slate-500">Dữ liệu song ngữ được đọc trực tiếp từ PostgreSQL qua Spring Boot API.</p></div><div className="flex gap-2"><Button variant="outline" className="border-slate-200 bg-white"><PanelLeftClose /> Traceability</Button><Button disabled={!project || !canEditRequirement} onClick={() => setEditor("create")} className="bg-[#123a63] hover:bg-[#0d2e50]"><Plus /> Thêm yêu cầu</Button></div></div>
           {error && <div className="mb-4 flex items-center gap-3 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700"><AlertCircle className="size-4 shrink-0" /><span className="flex-1">{error}</span><Button variant="ghost" size="sm" onClick={() => void load()}><RefreshCw /> Thử lại</Button></div>}
           {loading ? <div className="grid min-h-96 place-items-center rounded-2xl border border-slate-200 bg-white"><div className="text-center text-sm text-slate-500"><LoaderCircle className="mx-auto mb-3 size-6 animate-spin text-[#2878ad]" />Đang tải workspace…</div></div> : !project ? <EmptyState title="Chưa có project" description="Tạo project đầu tiên để bắt đầu quản lý requirement." action={<Button onClick={() => setProjectEditor("create")} className="mt-4 bg-[#123a63] hover:bg-[#0d2e50]"><Plus /> Tạo project</Button>} /> : (
             <div className="grid gap-4 xl:grid-cols-[minmax(350px,0.92fr)_minmax(520px,1.45fr)]">
@@ -282,7 +336,7 @@ export default function Home() {
                 <div className="divide-y divide-slate-100">{requirements.length === 0 ? <p className="p-8 text-center text-sm text-slate-500">Không tìm thấy requirement.</p> : requirements.map((item) => <button key={item.id} onClick={() => void selectRequirement(item)} className={`w-full border-l-[3px] p-4 pl-[13px] text-left transition hover:bg-slate-50 ${selected?.id === item.id ? "border-[#2878ad] bg-[#f2f7fb]" : "border-transparent"}`}><div className="mb-2 flex items-center justify-between gap-2"><span className="font-mono text-xs font-semibold text-[#2878ad]">{item.displayKey}</span><StatusBadge status={item.status} /></div><p lang="ja" className="line-clamp-1 text-sm font-semibold text-slate-900">{excerpt(item.latestRevision?.japaneseText)}</p><p className="mt-1 line-clamp-1 text-sm text-slate-500">{excerpt(item.latestRevision?.vietnameseText)}</p><p className="mt-2 text-xs text-slate-400">Revision {item.latestRevision?.revisionNumber ?? 0}</p></button>)}</div>
                 {totalPages > 1 && <div className="flex items-center justify-between border-t border-slate-200 p-3"><Button variant="outline" size="sm" disabled={page === 0} onClick={() => void loadRequirementPage(page - 1)}>Trang trước</Button><span className="text-xs text-slate-500">{page + 1} / {totalPages}</span><Button variant="outline" size="sm" disabled={page + 1 >= totalPages} onClick={() => void loadRequirementPage(page + 1)}>Trang sau</Button></div>}
               </section>
-              {selected ? <RequirementDetail requirement={selected} saving={saving} onEdit={() => setEditor("revision")} onConfirm={() => void confirmLatest()} onArchive={() => void archiveRequirement()} /> : <EmptyState title="Chưa có requirement" description="Thêm requirement đầu tiên cho project này." />}
+              {selected ? <RequirementDetail requirement={selected} projectRole={project.role} saving={saving} onEdit={() => setEditor("revision")} onConfirm={() => void confirmLatest()} onArchive={() => void archiveRequirement()} /> : <EmptyState title="Chưa có requirement" description="Thêm requirement đầu tiên cho project này." />}
             </div>
           )}
         </section>
@@ -293,10 +347,16 @@ export default function Home() {
   );
 }
 
-function RequirementDetail({ requirement, saving, onEdit, onConfirm, onArchive }: { requirement: Requirement; saving: boolean; onEdit: () => void; onConfirm: () => void; onArchive: () => void }) {
+function RequirementDetail({ requirement, projectRole, saving, onEdit, onConfirm, onArchive }: { requirement: Requirement; projectRole: string; saving: boolean; onEdit: () => void; onConfirm: () => void; onArchive: () => void }) {
   const revision = requirement.latestRevision;
-  const canConfirm = revision && revision.reviewStatus !== "CONFIRMED";
-  return <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"><div className="flex items-center gap-3 border-b border-slate-200 px-5 py-4"><span className="font-mono text-sm font-bold text-[#2878ad]">{requirement.displayKey}</span><StatusBadge status={requirement.status} /><span className="text-xs text-slate-400">Stable ID · {requirement.id.slice(0, 8)}</span><Button variant="ghost" size="icon-sm" className="ml-auto"><MoreHorizontal /></Button></div><Tabs defaultValue="analysis" className="gap-0"><TabsList variant="line" className="h-12 w-full justify-start gap-5 border-b border-slate-200 px-5"><TabsTrigger value="analysis" className="px-0">Phân tích song ngữ</TabsTrigger><TabsTrigger value="history" className="px-0">Lịch sử ({requirement.revisions.length})</TabsTrigger></TabsList><TabsContent value="analysis" className="p-5 md:p-6"><div className="grid gap-4 md:grid-cols-2"><LanguageCard label="原文 · Tiếng Nhật" lang="ja" text={revision?.japaneseText} /><LanguageCard label="Bản dịch · Tiếng Việt" lang="vi" text={revision?.vietnameseText} translated /></div><div className="mt-5 rounded-xl border border-blue-200 bg-blue-50/70 p-4 text-sm text-blue-950"><p className="font-semibold">Revision {revision?.revisionNumber ?? 0} · {revision?.changeType ?? "—"}</p><p className="mt-1 text-blue-800">Requirement ID được giữ ổn định; mỗi lần sửa tạo một revision mới để truy vết thay đổi.</p></div><div className="mt-5 flex flex-wrap gap-2 border-t border-slate-100 pt-5"><Button variant="outline" onClick={onEdit}>Tạo revision mới</Button>{canConfirm && <Button disabled={saving} onClick={onConfirm} className="bg-[#2878ad] hover:bg-[#226994]">{saving ? <LoaderCircle className="animate-spin" /> : <Check />} BrSE xác nhận revision</Button>}<Button variant="ghost" disabled={saving} onClick={onArchive} className="ml-auto text-red-600 hover:bg-red-50 hover:text-red-700"><Archive /> Archive</Button></div></TabsContent><TabsContent value="history" className="p-6"><ol className="space-y-3">{[...requirement.revisions].reverse().map((item) => <li key={item.id} className="flex gap-3 rounded-xl border border-slate-200 p-4"><div className="grid size-8 shrink-0 place-items-center rounded-full bg-slate-100 text-xs font-bold">v{item.revisionNumber}</div><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><p className="text-sm font-semibold">{item.changeType}</p><StatusBadge status={item.reviewStatus} /></div><p lang="ja" className="mt-1 truncate text-sm text-slate-600">{item.japaneseText}</p><p className="mt-1 text-xs text-slate-400">{new Date(item.createdAt).toLocaleString("vi-VN")}</p></div></li>)}</ol></TabsContent></Tabs></section>;
+  const canEdit = ["ADMIN", "BRSE", "DEVELOPER"].includes(projectRole);
+  const canReview = ["ADMIN", "BRSE"].includes(projectRole);
+  const canConfirm = canReview && revision && revision.reviewStatus !== "CONFIRMED";
+  return <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"><div className="flex items-center gap-3 border-b border-slate-200 px-5 py-4"><span className="font-mono text-sm font-bold text-[#2878ad]">{requirement.displayKey}</span><StatusBadge status={requirement.status} /><span className="text-xs text-slate-400">Stable ID · {requirement.id.slice(0, 8)}</span><Button variant="ghost" size="icon-sm" className="ml-auto"><MoreHorizontal /></Button></div><Tabs defaultValue="analysis" className="gap-0"><TabsList variant="line" className="h-12 w-full justify-start gap-5 border-b border-slate-200 px-5"><TabsTrigger value="analysis" className="px-0">Phân tích song ngữ</TabsTrigger><TabsTrigger value="history" className="px-0">Lịch sử ({requirement.revisions.length})</TabsTrigger></TabsList><TabsContent value="analysis" className="p-5 md:p-6"><div className="grid gap-4 md:grid-cols-2"><LanguageCard label="原文 · Tiếng Nhật" lang="ja" text={revision?.japaneseText} /><LanguageCard label="Bản dịch · Tiếng Việt" lang="vi" text={revision?.vietnameseText} translated /></div><div className="mt-5 rounded-xl border border-blue-200 bg-blue-50/70 p-4 text-sm text-blue-950"><p className="font-semibold">Revision {revision?.revisionNumber ?? 0} · {revision?.changeType ?? "—"}</p><p className="mt-1 text-blue-800">Requirement ID được giữ ổn định; mỗi lần sửa tạo một revision mới để truy vết thay đổi.</p></div>{(canEdit || canReview) && <div className="mt-5 flex flex-wrap gap-2 border-t border-slate-100 pt-5">{canEdit && <Button variant="outline" onClick={onEdit}>Tạo revision mới</Button>}{canConfirm && <Button disabled={saving} onClick={onConfirm} className="bg-[#2878ad] hover:bg-[#226994]">{saving ? <LoaderCircle className="animate-spin" /> : <Check />} BrSE xác nhận revision</Button>}{canReview && <Button variant="ghost" disabled={saving} onClick={onArchive} className="ml-auto text-red-600 hover:bg-red-50 hover:text-red-700"><Archive /> Archive</Button>}</div>}</TabsContent><TabsContent value="history" className="p-6"><ol className="space-y-3">{[...requirement.revisions].reverse().map((item) => <li key={item.id} className="flex gap-3 rounded-xl border border-slate-200 p-4"><div className="grid size-8 shrink-0 place-items-center rounded-full bg-slate-100 text-xs font-bold">v{item.revisionNumber}</div><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><p className="text-sm font-semibold">{item.changeType}</p><StatusBadge status={item.reviewStatus} /></div><p lang="ja" className="mt-1 truncate text-sm text-slate-600">{item.japaneseText}</p><p className="mt-1 text-xs text-slate-400">{new Date(item.createdAt).toLocaleString("vi-VN")}</p></div></li>)}</ol></TabsContent></Tabs></section>;
+}
+
+function LoginScreen({ saving, error, onSubmit }: { saving: boolean; error: string | null; onSubmit: (event: FormEvent<HTMLFormElement>) => void }) {
+  return <main className="grid min-h-screen place-items-center bg-[#eef3f7] p-4"><div className="w-full max-w-md rounded-3xl border border-white/80 bg-white p-7 shadow-xl shadow-slate-300/30 md:p-9"><div className="mb-7 flex items-center gap-3"><div className="grid size-11 place-items-center rounded-xl bg-[#123a63] text-white shadow-sm"><Languages className="size-6" /></div><div><h1 className="text-xl font-bold tracking-tight">BridgeFlow</h1><p className="text-xs font-medium tracking-wide text-slate-500">JP × VN REQUIREMENTS</p></div></div><div><h2 className="text-2xl font-bold tracking-tight">Đăng nhập workspace</h2><p className="mt-2 text-sm leading-6 text-slate-500">Dùng tài khoản thành viên để truy cập đúng project và quyền được cấp.</p></div>{error && <div className="mt-5 flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700"><AlertCircle className="mt-0.5 size-4 shrink-0" />{error}</div>}<form onSubmit={onSubmit} className="mt-6 space-y-4"><label className="block text-sm font-semibold text-slate-700">Email<input name="email" type="email" required autoComplete="username" defaultValue="brse@bridgeflow.local" className="mt-1.5 h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 font-normal outline-none transition focus:border-[#2878ad] focus:bg-white" /></label><label className="block text-sm font-semibold text-slate-700">Mật khẩu<input name="password" type="password" required autoComplete="current-password" defaultValue="bridgeflow-demo" className="mt-1.5 h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 font-normal outline-none transition focus:border-[#2878ad] focus:bg-white" /></label><Button disabled={saving} className="mt-2 h-11 w-full bg-[#123a63] hover:bg-[#0d2e50]">{saving && <LoaderCircle className="animate-spin" />} Đăng nhập</Button></form><p className="mt-5 text-center text-xs text-slate-400">Tài khoản mẫu chỉ được tạo khi backend chạy profile dev.</p></div></main>;
 }
 
 function LanguageCard({ label, lang, text, translated = false }: { label: string; lang: string; text?: string; translated?: boolean }) {

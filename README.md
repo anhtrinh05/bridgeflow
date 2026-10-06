@@ -8,6 +8,8 @@ AI-assisted requirements workspace for Japanese–Vietnamese software teams.
 - Project switcher with create, edit, and archive workflows
 - Server-side requirement search, status filters, sorting, pagination, and archive workflow
 - OpenAPI contract, Swagger UI, and generated TypeScript API types
+- Stateless bearer authentication with project-scoped roles
+- Audit events for project and requirement lifecycle changes
 - Stable requirement identity with append-only bilingual revisions
 - BrSE review/confirmation workflow and revision history
 - Synthetic Japanese–Vietnamese demo workspace (no customer data)
@@ -47,6 +49,14 @@ mvn spring-boot:run -Dspring-boot.run.profiles=dev
 The API runs at `http://127.0.0.1:8080`. Check liveness at
 `/api/v1/health` and database readiness at `/actuator/health`.
 
+The `dev` profile creates a synthetic BrSE account for local use:
+
+- Email: `brse@bridgeflow.local`
+- Password: `bridgeflow-demo` (override with `BRIDGEFLOW_DEMO_PASSWORD`)
+
+The frontend keeps the opaque access token in `sessionStorage`; only its SHA-256
+hash is persisted by the backend, and sessions expire after eight hours.
+
 Open Swagger UI at `http://127.0.0.1:8080/swagger-ui.html` or read the JSON
 contract at `http://127.0.0.1:8080/v3/api-docs`. With the backend running,
 regenerate frontend API types from the contract with:
@@ -76,7 +86,7 @@ See [backend/README.md](backend/README.md) for details and optional tool paths.
 
 ## Planned milestones
 
-1. Authentication, project membership, document, and glossary management
+1. Document and glossary management
 2. Japanese document ingestion and requirement extraction
 3. Q&A, acceptance criteria, and test-case generation
 4. Requirement traceability, change-impact analysis, and production observability

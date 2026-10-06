@@ -27,6 +27,17 @@ Demo and evaluation environments must use synthetic documents only. Real custome
 - Secrets supplied through runtime configuration, never source control.
 - Configurable retention and complete project deletion.
 
+## Implemented authentication boundary
+
+- Login returns a cryptographically random opaque bearer token with an eight-hour expiry.
+- PostgreSQL stores only the token's SHA-256 hash; raw tokens and passwords are never logged.
+- Passwords use Spring Security's delegating password encoder with bcrypt as the default.
+- The browser keeps the token in `sessionStorage`, so closing the tab ends the local session.
+- API authorization resolves project membership on every project or requirement request.
+- Roles are `ADMIN`, `BRSE`, `DEVELOPER`, and read-only `VIEWER`.
+- Project and requirement create, update, confirm, archive, and revision actions write an
+  immutable audit event with the authenticated actor ID.
+
 ## AI provider boundary
 
 Before sending content to an AI provider, the backend must:

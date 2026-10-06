@@ -79,6 +79,17 @@ public class RequirementRevision {
         String vietnameseText,
         ChangeType changeType
     ) {
+        this(requirement, revisionNumber, japaneseText, vietnameseText, changeType, null);
+    }
+
+    public RequirementRevision(
+        Requirement requirement,
+        int revisionNumber,
+        String japaneseText,
+        String vietnameseText,
+        ChangeType changeType,
+        UUID createdBy
+    ) {
         if (revisionNumber < 1) {
             throw new IllegalArgumentException("revisionNumber must be at least 1");
         }
@@ -87,6 +98,7 @@ public class RequirementRevision {
         this.japaneseText = requireText(japaneseText, "japaneseText");
         this.vietnameseText = requireText(vietnameseText, "vietnameseText");
         this.changeType = Objects.requireNonNull(changeType, "changeType is required");
+        this.createdBy = createdBy;
     }
 
     @PrePersist
