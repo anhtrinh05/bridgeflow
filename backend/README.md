@@ -38,10 +38,15 @@ deployed environments.
 | `GET` | `/api/v1/projects/{projectId}` | Read a project |
 | `PATCH` | `/api/v1/projects/{projectId}` | Update project details |
 | `POST` | `/api/v1/projects/{projectId}/archive` | Archive a project |
-| `GET` / `POST` | `/api/v1/projects/{projectId}/requirements` | List or create requirements |
+| `GET` / `POST` | `/api/v1/projects/{projectId}/requirements` | Search/page or create requirements |
 | `GET` | `/api/v1/requirements/{requirementId}` | Read a requirement and its revision history |
 | `POST` | `/api/v1/requirements/{requirementId}/revisions` | Add a bilingual revision |
 | `POST` | `/api/v1/requirements/{requirementId}/revisions/{revisionId}/confirm` | Confirm the latest revision |
+| `POST` | `/api/v1/requirements/{requirementId}/archive` | Archive a requirement |
+
+Requirement listing supports `status`, `query`, `page`, `size`, `sortBy`,
+`direction`, and `includeArchived` query parameters. Archived requirements are
+excluded by default and retain their stable ID and complete revision history.
 
 The default profile only loads production-safe schema migrations from
 `db/migration`. The `dev` profile additionally loads synthetic

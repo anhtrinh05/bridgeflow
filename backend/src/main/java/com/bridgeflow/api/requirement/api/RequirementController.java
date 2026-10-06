@@ -1,7 +1,6 @@
 package com.bridgeflow.api.requirement.api;
 
 import java.net.URI;
-import java.util.List;
 import java.util.UUID;
 
 import org.springframework.http.ResponseEntity;
@@ -10,13 +9,16 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.bridgeflow.api.requirement.api.RequirementModels.ConfirmRevisionRequest;
 import com.bridgeflow.api.requirement.api.RequirementModels.CreateRequirementRequest;
 import com.bridgeflow.api.requirement.api.RequirementModels.CreateRevisionRequest;
 import com.bridgeflow.api.requirement.api.RequirementModels.RequirementResponse;
+import com.bridgeflow.api.requirement.api.RequirementModels.RequirementPageResponse;
 import com.bridgeflow.api.requirement.application.RequirementService;
+import com.bridgeflow.api.requirement.domain.RequirementStatus;
 
 import jakarta.validation.Valid;
 
@@ -31,8 +33,22 @@ public class RequirementController {
     }
 
     @GetMapping("/projects/{projectId}/requirements")
-    public List<RequirementResponse> list(@PathVariable UUID projectId) {
-        return requirementService.list(projectId);
+    public RequirementPageResponse list(
+        @PathVariable UUID projectId,
+        @RequestParam(required = false) RequirementStatus status,
+        @RequestParam(defaultValue = "false") boolean includeArchived,
+        @RequestParam(defaultValue = "") String query,
+        @RequestParam(defaultValue = "0") int page,
+        @RequestParam(defaultValue = "20") int size,
+        @RequestParam(defaultValue = "displayKey") String sortBy,
+        @RequestParam(defaultValue = "asc") String direction
+    ) {
+        if (page < 0 || size < 1 || size > 100) {
+            throw new IllegalArgumentException("page phải >= 0 và size phải từ 1 đến 100.");
+        }
+        return requirementService.list(
+            projectId, status, includeArchived, query, page, size, sortBy, direction
+        );
     }
 
     @PostMapping("/projects/{projectId}/requirements")
@@ -62,5 +78,10 @@ public class RequirementController {
         @Valid @RequestBody ConfirmRevisionRequest request
     ) {
         return requirementService.confirm(requirementId, revisionId, request);
+    }
+
+    @PostMapping("/requirements/{requirementId}/archive")
+    public RequirementResponse archive(@PathVariable UUID requirementId) {
+        return requirementService.archive(requirementId);
     }
 }

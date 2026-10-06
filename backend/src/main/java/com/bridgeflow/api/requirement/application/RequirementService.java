@@ -4,6 +4,7 @@ import static com.bridgeflow.api.requirement.api.RequirementModels.ConfirmRevisi
 import static com.bridgeflow.api.requirement.api.RequirementModels.CreateRequirementRequest;
 import static com.bridgeflow.api.requirement.api.RequirementModels.CreateRevisionRequest;
 import static com.bridgeflow.api.requirement.api.RequirementModels.RequirementResponse;
+import static com.bridgeflow.api.requirement.api.RequirementModels.RequirementPageResponse;
 import static com.bridgeflow.api.requirement.api.RequirementModels.RevisionResponse;
 
 import java.util.Comparator;
@@ -11,14 +12,18 @@ import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.bridgeflow.api.common.ResourceNotFoundException;
 import com.bridgeflow.api.project.persistence.ProjectRepository;
+import com.bridgeflow.api.project.domain.ProjectStatus;
 import com.bridgeflow.api.requirement.domain.ChangeType;
 import com.bridgeflow.api.requirement.domain.Requirement;
 import com.bridgeflow.api.requirement.domain.RequirementRevision;
+import com.bridgeflow.api.requirement.domain.RequirementStatus;
 import com.bridgeflow.api.requirement.persistence.RequirementRepository;
 import com.bridgeflow.api.requirement.persistence.RequirementRevisionRepository;
 
@@ -40,10 +45,33 @@ public class RequirementService {
         this.revisionRepository = revisionRepository;
     }
 
-    public List<RequirementResponse> list(UUID projectId) {
+    public RequirementPageResponse list(
+        UUID projectId,
+        RequirementStatus status,
+        boolean includeArchived,
+        String query,
+        int page,
+        int size,
+        String sortBy,
+        String direction
+    ) {
         requireProject(projectId);
-        return requirementRepository.findByProjectIdOrderByDisplayKeyAsc(projectId).stream()
-            .map(requirement -> toResponse(requirement, false)).toList();
+        var sortProperty = switch (sortBy) {
+            case "displayKey", "status", "updatedAt" -> sortBy;
+            default -> throw new IllegalArgumentException("sortBy chỉ hỗ trợ displayKey, status hoặc updatedAt.");
+        };
+        var sortDirection = "desc".equalsIgnoreCase(direction) ? Sort.Direction.DESC : Sort.Direction.ASC;
+        var result = requirementRepository.search(
+            projectId,
+            status,
+            includeArchived,
+            query == null ? "" : query.trim(),
+            PageRequest.of(page, size, Sort.by(sortDirection, sortProperty))
+        );
+        return new RequirementPageResponse(
+            result.getContent().stream().map(requirement -> toResponse(requirement, false)).toList(),
+            result.getNumber(), result.getSize(), result.getTotalElements(), result.getTotalPages()
+        );
     }
 
     public RequirementResponse get(UUID requirementId) {
@@ -53,6 +81,9 @@ public class RequirementService {
     @Transactional
     public RequirementResponse create(UUID projectId, CreateRequirementRequest request) {
         var project = requireProject(projectId);
+        if (project.getStatus() == ProjectStatus.ARCHIVED) {
+            throw new IllegalStateException("Project đã archive nên không thể thêm requirement.");
+        }
         var displayKey = request.displayKey().trim().toUpperCase(Locale.ROOT);
         if (requirementRepository.findByProjectIdAndDisplayKey(projectId, displayKey).isPresent()) {
             throw new IllegalStateException("Requirement " + displayKey + " đã tồn tại trong project.");
@@ -68,6 +99,7 @@ public class RequirementService {
     @Transactional
     public RequirementResponse addRevision(UUID requirementId, CreateRevisionRequest request) {
         var requirement = findRequirement(requirementId);
+        requireActive(requirement);
         var revisionNumber = Math.toIntExact(revisionRepository.countByRequirementId(requirementId) + 1);
         revisionRepository.save(new RequirementRevision(
             requirement, revisionNumber, request.japaneseText(), request.vietnameseText(), request.changeType()
@@ -81,6 +113,7 @@ public class RequirementService {
         UUID requirementId, UUID revisionId, ConfirmRevisionRequest request
     ) {
         var requirement = findRequirement(requirementId);
+        requireActive(requirement);
         var revision = revisionRepository.findByIdAndRequirementId(revisionId, requirementId)
             .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy revision thuộc requirement này."));
         var latestRevision = revisionRepository.findFirstByRequirementIdOrderByRevisionNumberDesc(requirementId)
@@ -95,6 +128,13 @@ public class RequirementService {
         return toResponse(requirement, true);
     }
 
+    @Transactional
+    public RequirementResponse archive(UUID requirementId) {
+        var requirement = findRequirement(requirementId);
+        requirement.archive();
+        return toResponse(requirementRepository.saveAndFlush(requirement), true);
+    }
+
     private com.bridgeflow.api.project.domain.Project requireProject(UUID projectId) {
         return projectRepository.findById(projectId)
             .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy project " + projectId + "."));
@@ -105,6 +145,12 @@ public class RequirementService {
             .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy requirement " + requirementId + "."));
     }
 
+    private void requireActive(Requirement requirement) {
+        if (requirement.isArchived()) {
+            throw new IllegalStateException("Requirement đã archive nên không thể thay đổi.");
+        }
+    }
+
     private RequirementResponse toResponse(Requirement requirement, boolean includeHistory) {
         var revisions = revisionRepository.findByRequirementIdOrderByRevisionNumberAsc(requirement.getId());
         var latest = revisions.stream().max(Comparator.comparingInt(RequirementRevision::getRevisionNumber))
@@ -113,7 +159,7 @@ public class RequirementService {
         return new RequirementResponse(
             requirement.getId(), requirement.getProject().getId(), requirement.getDisplayKey(),
             requirement.getStatus().name(), requirement.getCurrentRevisionId(), latest, history,
-            requirement.getCreatedAt(), requirement.getUpdatedAt()
+            requirement.getCreatedAt(), requirement.getUpdatedAt(), requirement.getArchivedAt()
         );
     }
 

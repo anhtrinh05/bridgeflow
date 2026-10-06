@@ -54,7 +54,17 @@ public final class RequirementModels {
         RevisionResponse latestRevision,
         List<RevisionResponse> revisions,
         Instant createdAt,
-        Instant updatedAt
+        Instant updatedAt,
+        Instant archivedAt
+    ) {
+    }
+
+    public record RequirementPageResponse(
+        List<RequirementResponse> items,
+        int page,
+        int size,
+        long totalElements,
+        int totalPages
     ) {
     }
 }

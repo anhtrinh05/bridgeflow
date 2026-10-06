@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, ReactNode, useCallback, useEffect, useMemo, useState } from "react";
+import { FormEvent, ReactNode, useCallback, useEffect, useState } from "react";
 import {
   AlertCircle, Archive, Bell, BookOpenText, Check, ChevronDown, FileText,
   FolderKanban, GitCompareArrows, Languages, LayoutDashboard, LoaderCircle,
@@ -23,6 +23,7 @@ const statusMeta: Record<string, { label: string; colors: string }> = {
   REVIEWING: { label: "Cần xác nhận", colors: "border-amber-200 bg-amber-50 text-amber-700" },
   CONFIRMED: { label: "Đã xác nhận", colors: "border-emerald-200 bg-emerald-50 text-emerald-700" },
   REJECTED: { label: "Bị từ chối", colors: "border-red-200 bg-red-50 text-red-700" },
+  ARCHIVED: { label: "Đã archive", colors: "border-slate-300 bg-slate-100 text-slate-500" },
 };
 
 function StatusBadge({ status }: { status: string }) {
@@ -44,6 +45,12 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
+  const [sortBy, setSortBy] = useState<"displayKey" | "status" | "updatedAt">("displayKey");
+  const [direction, setDirection] = useState<"asc" | "desc">("asc");
+  const [page, setPage] = useState(0);
+  const [totalElements, setTotalElements] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
   const [editor, setEditor] = useState<"create" | "revision" | null>(null);
   const [projectEditor, setProjectEditor] = useState<"create" | "edit" | null>(null);
   const [projectMenuOpen, setProjectMenuOpen] = useState(false);
@@ -60,9 +67,16 @@ export default function Home() {
         ?? null;
       setProject(activeProject);
       if (!activeProject) { setRequirements([]); setSelected(null); return; }
-      const items = await bridgeFlowApi.listRequirements(activeProject.id);
-      setRequirements(items);
-      setSelected(items[0] ? await bridgeFlowApi.getRequirement(items[0].id) : null);
+      setQuery("");
+      setStatusFilter("");
+      setSortBy("displayKey");
+      setDirection("asc");
+      setPage(0);
+      const result = await bridgeFlowApi.listRequirements(activeProject.id);
+      setRequirements(result.items);
+      setTotalElements(result.totalElements);
+      setTotalPages(result.totalPages);
+      setSelected(result.items[0] ? await bridgeFlowApi.getRequirement(result.items[0].id) : null);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Không thể kết nối backend.");
     } finally { setLoading(false); }
@@ -114,14 +128,34 @@ export default function Home() {
     } finally { setSaving(false); }
   }
 
-  const filtered = useMemo(() => {
-    const keyword = query.trim().toLocaleLowerCase();
-    if (!keyword) return requirements;
-    return requirements.filter((item) =>
-      `${item.displayKey} ${item.latestRevision?.japaneseText} ${item.latestRevision?.vietnameseText}`
-        .toLocaleLowerCase().includes(keyword),
-    );
-  }, [query, requirements]);
+  async function loadRequirementPage(
+    pageIndex: number,
+    nextStatus = statusFilter,
+    nextQuery = query,
+    nextSortBy = sortBy,
+    nextDirection = direction,
+  ) {
+    if (!project) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const result = await bridgeFlowApi.listRequirements(project.id, {
+        status: nextStatus || undefined,
+        query: nextQuery,
+        page: pageIndex,
+        size: 10,
+        sortBy: nextSortBy,
+        direction: nextDirection,
+      });
+      setRequirements(result.items);
+      setPage(result.page);
+      setTotalElements(result.totalElements);
+      setTotalPages(result.totalPages);
+      setSelected(result.items[0] ? await bridgeFlowApi.getRequirement(result.items[0].id) : null);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Không thể tải requirements.");
+    } finally { setLoading(false); }
+  }
 
   async function selectRequirement(item: Requirement) {
     setError(null);
@@ -131,7 +165,47 @@ export default function Home() {
 
   async function refreshRequirement(requirement: Requirement) {
     setSelected(requirement);
-    if (project) setRequirements(await bridgeFlowApi.listRequirements(project.id));
+    if (project) {
+      const result = await bridgeFlowApi.listRequirements(project.id, {
+        status: statusFilter || undefined, query, page, size: 10, sortBy, direction,
+      });
+      setRequirements(result.items);
+      setTotalElements(result.totalElements);
+      setTotalPages(result.totalPages);
+    }
+  }
+
+  async function submitSearch(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    await loadRequirementPage(0);
+  }
+
+  async function changeStatus(nextStatus: string) {
+    setStatusFilter(nextStatus);
+    await loadRequirementPage(0, nextStatus);
+  }
+
+  async function changeSort(value: string) {
+    const [nextSortBy, nextDirection] = value.split(":") as [typeof sortBy, typeof direction];
+    setSortBy(nextSortBy);
+    setDirection(nextDirection);
+    await loadRequirementPage(0, statusFilter, query, nextSortBy, nextDirection);
+  }
+
+  async function archiveRequirement() {
+    if (!project || !selected || !window.confirm(`Archive requirement ${selected.displayKey}?`)) return;
+    setSaving(true);
+    setError(null);
+    try {
+      await bridgeFlowApi.archiveRequirement(selected.id);
+      const activeProjects = await bridgeFlowApi.listProjects();
+      setProjects(activeProjects);
+      setProject(activeProjects.find((item) => item.id === project.id) ?? project);
+      const nextPage = requirements.length === 1 && page > 0 ? page - 1 : page;
+      await loadRequirementPage(nextPage);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Không thể archive requirement.");
+    } finally { setSaving(false); }
   }
 
   async function submitEditor(event: FormEvent<HTMLFormElement>) {
@@ -199,8 +273,16 @@ export default function Home() {
           {error && <div className="mb-4 flex items-center gap-3 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700"><AlertCircle className="size-4 shrink-0" /><span className="flex-1">{error}</span><Button variant="ghost" size="sm" onClick={() => void load()}><RefreshCw /> Thử lại</Button></div>}
           {loading ? <div className="grid min-h-96 place-items-center rounded-2xl border border-slate-200 bg-white"><div className="text-center text-sm text-slate-500"><LoaderCircle className="mx-auto mb-3 size-6 animate-spin text-[#2878ad]" />Đang tải workspace…</div></div> : !project ? <EmptyState title="Chưa có project" description="Tạo project đầu tiên để bắt đầu quản lý requirement." action={<Button onClick={() => setProjectEditor("create")} className="mt-4 bg-[#123a63] hover:bg-[#0d2e50]"><Plus /> Tạo project</Button>} /> : (
             <div className="grid gap-4 xl:grid-cols-[minmax(350px,0.92fr)_minmax(520px,1.45fr)]">
-              <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"><div className="flex items-center gap-2 border-b border-slate-200 p-3"><div className="relative min-w-0 flex-1"><Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Tìm requirement..." className="h-9 w-full rounded-lg border border-slate-200 bg-slate-50 pl-9 pr-3 text-sm outline-none focus:border-[#2878ad]" /></div></div><div className="divide-y divide-slate-100">{filtered.length === 0 ? <p className="p-8 text-center text-sm text-slate-500">Không tìm thấy requirement.</p> : filtered.map((item) => <button key={item.id} onClick={() => void selectRequirement(item)} className={`w-full border-l-[3px] p-4 pl-[13px] text-left transition hover:bg-slate-50 ${selected?.id === item.id ? "border-[#2878ad] bg-[#f2f7fb]" : "border-transparent"}`}><div className="mb-2 flex items-center justify-between gap-2"><span className="font-mono text-xs font-semibold text-[#2878ad]">{item.displayKey}</span><StatusBadge status={item.status} /></div><p lang="ja" className="line-clamp-1 text-sm font-semibold text-slate-900">{excerpt(item.latestRevision?.japaneseText)}</p><p className="mt-1 line-clamp-1 text-sm text-slate-500">{excerpt(item.latestRevision?.vietnameseText)}</p><p className="mt-2 text-xs text-slate-400">Revision {item.latestRevision?.revisionNumber ?? 0}</p></button>)}</div></section>
-              {selected ? <RequirementDetail requirement={selected} saving={saving} onEdit={() => setEditor("revision")} onConfirm={() => void confirmLatest()} /> : <EmptyState title="Chưa có requirement" description="Thêm requirement đầu tiên cho project này." />}
+              <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+                <div className="space-y-2 border-b border-slate-200 p-3">
+                  <form onSubmit={submitSearch} className="flex items-center gap-2"><div className="relative min-w-0 flex-1"><Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Tìm mã hoặc nội dung song ngữ..." className="h-9 w-full rounded-lg border border-slate-200 bg-slate-50 pl-9 pr-3 text-sm outline-none focus:border-[#2878ad]" /></div><Button type="submit" variant="outline" size="sm">Tìm</Button></form>
+                  <div className="grid grid-cols-2 gap-2"><select value={statusFilter} onChange={(event) => void changeStatus(event.target.value)} className="h-9 rounded-lg border border-slate-200 bg-white px-2 text-xs outline-none"><option value="">Mọi trạng thái</option><option value="DRAFT">Bản nháp</option><option value="REVIEWING">Cần xác nhận</option><option value="CONFIRMED">Đã xác nhận</option><option value="REJECTED">Bị từ chối</option></select><select value={`${sortBy}:${direction}`} onChange={(event) => void changeSort(event.target.value)} className="h-9 rounded-lg border border-slate-200 bg-white px-2 text-xs outline-none"><option value="displayKey:asc">Mã A → Z</option><option value="displayKey:desc">Mã Z → A</option><option value="updatedAt:desc">Mới cập nhật</option><option value="updatedAt:asc">Cũ cập nhật</option><option value="status:asc">Theo trạng thái</option></select></div>
+                  <p className="px-1 text-[11px] text-slate-400">{totalElements} requirement · Trang {totalPages === 0 ? 0 : page + 1}/{totalPages}</p>
+                </div>
+                <div className="divide-y divide-slate-100">{requirements.length === 0 ? <p className="p-8 text-center text-sm text-slate-500">Không tìm thấy requirement.</p> : requirements.map((item) => <button key={item.id} onClick={() => void selectRequirement(item)} className={`w-full border-l-[3px] p-4 pl-[13px] text-left transition hover:bg-slate-50 ${selected?.id === item.id ? "border-[#2878ad] bg-[#f2f7fb]" : "border-transparent"}`}><div className="mb-2 flex items-center justify-between gap-2"><span className="font-mono text-xs font-semibold text-[#2878ad]">{item.displayKey}</span><StatusBadge status={item.status} /></div><p lang="ja" className="line-clamp-1 text-sm font-semibold text-slate-900">{excerpt(item.latestRevision?.japaneseText)}</p><p className="mt-1 line-clamp-1 text-sm text-slate-500">{excerpt(item.latestRevision?.vietnameseText)}</p><p className="mt-2 text-xs text-slate-400">Revision {item.latestRevision?.revisionNumber ?? 0}</p></button>)}</div>
+                {totalPages > 1 && <div className="flex items-center justify-between border-t border-slate-200 p-3"><Button variant="outline" size="sm" disabled={page === 0} onClick={() => void loadRequirementPage(page - 1)}>Trang trước</Button><span className="text-xs text-slate-500">{page + 1} / {totalPages}</span><Button variant="outline" size="sm" disabled={page + 1 >= totalPages} onClick={() => void loadRequirementPage(page + 1)}>Trang sau</Button></div>}
+              </section>
+              {selected ? <RequirementDetail requirement={selected} saving={saving} onEdit={() => setEditor("revision")} onConfirm={() => void confirmLatest()} onArchive={() => void archiveRequirement()} /> : <EmptyState title="Chưa có requirement" description="Thêm requirement đầu tiên cho project này." />}
             </div>
           )}
         </section>
@@ -211,10 +293,10 @@ export default function Home() {
   );
 }
 
-function RequirementDetail({ requirement, saving, onEdit, onConfirm }: { requirement: Requirement; saving: boolean; onEdit: () => void; onConfirm: () => void }) {
+function RequirementDetail({ requirement, saving, onEdit, onConfirm, onArchive }: { requirement: Requirement; saving: boolean; onEdit: () => void; onConfirm: () => void; onArchive: () => void }) {
   const revision = requirement.latestRevision;
   const canConfirm = revision && revision.reviewStatus !== "CONFIRMED";
-  return <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"><div className="flex items-center gap-3 border-b border-slate-200 px-5 py-4"><span className="font-mono text-sm font-bold text-[#2878ad]">{requirement.displayKey}</span><StatusBadge status={requirement.status} /><span className="text-xs text-slate-400">Stable ID · {requirement.id.slice(0, 8)}</span><Button variant="ghost" size="icon-sm" className="ml-auto"><MoreHorizontal /></Button></div><Tabs defaultValue="analysis" className="gap-0"><TabsList variant="line" className="h-12 w-full justify-start gap-5 border-b border-slate-200 px-5"><TabsTrigger value="analysis" className="px-0">Phân tích song ngữ</TabsTrigger><TabsTrigger value="history" className="px-0">Lịch sử ({requirement.revisions.length})</TabsTrigger></TabsList><TabsContent value="analysis" className="p-5 md:p-6"><div className="grid gap-4 md:grid-cols-2"><LanguageCard label="原文 · Tiếng Nhật" lang="ja" text={revision?.japaneseText} /><LanguageCard label="Bản dịch · Tiếng Việt" lang="vi" text={revision?.vietnameseText} translated /></div><div className="mt-5 rounded-xl border border-blue-200 bg-blue-50/70 p-4 text-sm text-blue-950"><p className="font-semibold">Revision {revision?.revisionNumber ?? 0} · {revision?.changeType ?? "—"}</p><p className="mt-1 text-blue-800">Requirement ID được giữ ổn định; mỗi lần sửa tạo một revision mới để truy vết thay đổi.</p></div><div className="mt-5 flex flex-wrap gap-2 border-t border-slate-100 pt-5"><Button variant="outline" onClick={onEdit}>Tạo revision mới</Button>{canConfirm && <Button disabled={saving} onClick={onConfirm} className="bg-[#2878ad] hover:bg-[#226994]">{saving ? <LoaderCircle className="animate-spin" /> : <Check />} BrSE xác nhận revision</Button>}</div></TabsContent><TabsContent value="history" className="p-6"><ol className="space-y-3">{[...requirement.revisions].reverse().map((item) => <li key={item.id} className="flex gap-3 rounded-xl border border-slate-200 p-4"><div className="grid size-8 shrink-0 place-items-center rounded-full bg-slate-100 text-xs font-bold">v{item.revisionNumber}</div><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><p className="text-sm font-semibold">{item.changeType}</p><StatusBadge status={item.reviewStatus} /></div><p lang="ja" className="mt-1 truncate text-sm text-slate-600">{item.japaneseText}</p><p className="mt-1 text-xs text-slate-400">{new Date(item.createdAt).toLocaleString("vi-VN")}</p></div></li>)}</ol></TabsContent></Tabs></section>;
+  return <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"><div className="flex items-center gap-3 border-b border-slate-200 px-5 py-4"><span className="font-mono text-sm font-bold text-[#2878ad]">{requirement.displayKey}</span><StatusBadge status={requirement.status} /><span className="text-xs text-slate-400">Stable ID · {requirement.id.slice(0, 8)}</span><Button variant="ghost" size="icon-sm" className="ml-auto"><MoreHorizontal /></Button></div><Tabs defaultValue="analysis" className="gap-0"><TabsList variant="line" className="h-12 w-full justify-start gap-5 border-b border-slate-200 px-5"><TabsTrigger value="analysis" className="px-0">Phân tích song ngữ</TabsTrigger><TabsTrigger value="history" className="px-0">Lịch sử ({requirement.revisions.length})</TabsTrigger></TabsList><TabsContent value="analysis" className="p-5 md:p-6"><div className="grid gap-4 md:grid-cols-2"><LanguageCard label="原文 · Tiếng Nhật" lang="ja" text={revision?.japaneseText} /><LanguageCard label="Bản dịch · Tiếng Việt" lang="vi" text={revision?.vietnameseText} translated /></div><div className="mt-5 rounded-xl border border-blue-200 bg-blue-50/70 p-4 text-sm text-blue-950"><p className="font-semibold">Revision {revision?.revisionNumber ?? 0} · {revision?.changeType ?? "—"}</p><p className="mt-1 text-blue-800">Requirement ID được giữ ổn định; mỗi lần sửa tạo một revision mới để truy vết thay đổi.</p></div><div className="mt-5 flex flex-wrap gap-2 border-t border-slate-100 pt-5"><Button variant="outline" onClick={onEdit}>Tạo revision mới</Button>{canConfirm && <Button disabled={saving} onClick={onConfirm} className="bg-[#2878ad] hover:bg-[#226994]">{saving ? <LoaderCircle className="animate-spin" /> : <Check />} BrSE xác nhận revision</Button>}<Button variant="ghost" disabled={saving} onClick={onArchive} className="ml-auto text-red-600 hover:bg-red-50 hover:text-red-700"><Archive /> Archive</Button></div></TabsContent><TabsContent value="history" className="p-6"><ol className="space-y-3">{[...requirement.revisions].reverse().map((item) => <li key={item.id} className="flex gap-3 rounded-xl border border-slate-200 p-4"><div className="grid size-8 shrink-0 place-items-center rounded-full bg-slate-100 text-xs font-bold">v{item.revisionNumber}</div><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><p className="text-sm font-semibold">{item.changeType}</p><StatusBadge status={item.reviewStatus} /></div><p lang="ja" className="mt-1 truncate text-sm text-slate-600">{item.japaneseText}</p><p className="mt-1 text-xs text-slate-400">{new Date(item.createdAt).toLocaleString("vi-VN")}</p></div></li>)}</ol></TabsContent></Tabs></section>;
 }
 
 function LanguageCard({ label, lang, text, translated = false }: { label: string; lang: string; text?: string; translated?: boolean }) {

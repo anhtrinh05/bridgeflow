@@ -210,6 +210,36 @@ class RequirementPersistenceIntegrationTest {
         assertThat(detail.required("revisions")).hasSize(2);
         assertThat(detail.required("id").asText()).isEqualTo(requirementId);
 
+        var searchPage = sendJson(
+            "GET",
+            "/api/v1/projects/" + projectId
+                + "/requirements?status=CONFIRMED&query=%E5%B1%A5%E6%AD%B4&page=0&size=1"
+                + "&sortBy=updatedAt&direction=desc",
+            null,
+            200
+        );
+        assertThat(searchPage.required("items")).hasSize(1);
+        assertThat(searchPage.required("items").get(0).required("id").asText()).isEqualTo(requirementId);
+        assertThat(searchPage.required("totalElements").asLong()).isEqualTo(1);
+
+        requirement = sendJson("POST", "/api/v1/requirements/" + requirementId + "/archive", "{}", 200);
+        assertThat(requirement.required("status").asText()).isEqualTo("ARCHIVED");
+        assertThat(requirement.required("archivedAt").isNull()).isFalse();
+        var activeRequirements = sendJson(
+            "GET", "/api/v1/projects/" + projectId + "/requirements", null, 200
+        );
+        assertThat(activeRequirements.required("items").toString()).doesNotContain(requirementId);
+        var archivedRequirements = sendJson(
+            "GET",
+            "/api/v1/projects/" + projectId + "/requirements?includeArchived=true&status=ARCHIVED",
+            null,
+            200
+        );
+        assertThat(archivedRequirements.required("items").toString()).contains(requirementId);
+        sendJson("POST", "/api/v1/requirements/" + requirementId + "/revisions", """
+            {"japaneseText":"変更不可","vietnameseText":"Không thể sửa","changeType":"MODIFIED"}
+            """, 400);
+
         project = sendJson("POST", "/api/v1/projects/" + projectId + "/archive", "{}", 200);
         assertThat(project.required("status").asText()).isEqualTo("ARCHIVED");
         var activeProjects = sendJson("GET", "/api/v1/projects", null, 200);

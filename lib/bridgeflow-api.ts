@@ -9,6 +9,14 @@ export type Project = {
   updatedAt: string;
 };
 
+export type RequirementPage = {
+  items: Requirement[];
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+};
+
 export type Revision = {
   id: string;
   revisionNumber: number;
@@ -31,6 +39,7 @@ export type Requirement = {
   revisions: Revision[];
   createdAt: string;
   updatedAt: string;
+  archivedAt: string | null;
 };
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8080/api/v1";
@@ -55,7 +64,25 @@ export const bridgeFlowApi = {
     request<Project>(`/projects/${projectId}`, { method: "PATCH", body: JSON.stringify(body) }),
   archiveProject: (projectId: string) =>
     request<Project>(`/projects/${projectId}/archive`, { method: "POST", body: "{}" }),
-  listRequirements: (projectId: string) => request<Requirement[]>(`/projects/${projectId}/requirements`),
+  listRequirements: (projectId: string, options: {
+    status?: string;
+    includeArchived?: boolean;
+    query?: string;
+    page?: number;
+    size?: number;
+    sortBy?: "displayKey" | "status" | "updatedAt";
+    direction?: "asc" | "desc";
+  } = {}) => {
+    const params = new URLSearchParams();
+    if (options.status) params.set("status", options.status);
+    if (options.includeArchived) params.set("includeArchived", "true");
+    if (options.query) params.set("query", options.query);
+    params.set("page", String(options.page ?? 0));
+    params.set("size", String(options.size ?? 10));
+    params.set("sortBy", options.sortBy ?? "displayKey");
+    params.set("direction", options.direction ?? "asc");
+    return request<RequirementPage>(`/projects/${projectId}/requirements?${params}`);
+  },
   getRequirement: (requirementId: string) => request<Requirement>(`/requirements/${requirementId}`),
   createRequirement: (projectId: string, body: { displayKey: string; japaneseText: string; vietnameseText: string }) =>
     request<Requirement>(`/projects/${projectId}/requirements`, { method: "POST", body: JSON.stringify(body) }),
@@ -65,4 +92,6 @@ export const bridgeFlowApi = {
     request<Requirement>(`/requirements/${requirementId}/revisions/${revisionId}/confirm`, {
       method: "POST", body: JSON.stringify({ reviewerId }),
     }),
+  archiveRequirement: (requirementId: string) =>
+    request<Requirement>(`/requirements/${requirementId}/archive`, { method: "POST", body: "{}" }),
 };

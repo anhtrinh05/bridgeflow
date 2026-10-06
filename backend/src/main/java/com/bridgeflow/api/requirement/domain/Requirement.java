@@ -97,6 +97,17 @@ public class Requirement {
         }
     }
 
+    public void archive() {
+        if (status != RequirementStatus.ARCHIVED) {
+            status = RequirementStatus.ARCHIVED;
+            archivedAt = Instant.now();
+        }
+    }
+
+    public boolean isArchived() {
+        return status == RequirementStatus.ARCHIVED;
+    }
+
     public UUID getId() {
         return id;
     }

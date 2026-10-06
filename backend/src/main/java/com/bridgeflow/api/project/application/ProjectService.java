@@ -16,6 +16,7 @@ import com.bridgeflow.api.project.domain.Project;
 import com.bridgeflow.api.project.domain.ProjectStatus;
 import com.bridgeflow.api.project.persistence.ProjectRepository;
 import com.bridgeflow.api.requirement.persistence.RequirementRepository;
+import com.bridgeflow.api.requirement.domain.RequirementStatus;
 
 @Service
 @Transactional(readOnly = true)
@@ -74,7 +75,8 @@ public class ProjectService {
     private ProjectResponse toResponse(Project project) {
         return new ProjectResponse(
             project.getId(), project.getCode(), project.getName(), project.getCustomerName(),
-            project.getStatus().name(), requirementRepository.countByProjectId(project.getId()),
+            project.getStatus().name(),
+            requirementRepository.countByProjectIdAndStatusNot(project.getId(), RequirementStatus.ARCHIVED),
             project.getCreatedAt(), project.getUpdatedAt()
         );
     }
