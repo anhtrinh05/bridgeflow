@@ -173,6 +173,23 @@ class RequirementPersistenceIntegrationTest {
     }
 
     @Test
+    void publishesTheOpenApiContract() throws Exception {
+        var contract = sendJson("GET", "/v3/api-docs", null, 200);
+
+        assertThat(contract.required("info").required("title").asText()).isEqualTo("BridgeFlow API");
+        assertThat(contract.required("paths").required("/api/v1/projects").required("get")
+            .required("operationId").asText()).isEqualTo("listProjects");
+        assertThat(contract.required("paths").required("/api/v1/projects").required("post")
+            .required("responses").has("201")).isTrue();
+        assertThat(contract.required("paths").required("/api/v1/projects/{projectId}/requirements")
+            .required("get").required("operationId").asText()).isEqualTo("listRequirements");
+        var schemas = contract.required("components").required("schemas");
+        assertThat(schemas.has("RequirementResponse")).isTrue();
+        assertThat(schemas.required("RequirementResponse").required("required").toString())
+            .contains("id", "projectId", "revisions", "archivedAt");
+    }
+
+    @Test
     void createsRevisesAndConfirmsARequirementThroughTheRestApi() throws Exception {
         var suffix = UUID.randomUUID().toString().substring(0, 8).toUpperCase();
         var project = sendJson("POST", "/api/v1/projects", """

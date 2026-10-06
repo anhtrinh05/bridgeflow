@@ -3,6 +3,7 @@ package com.bridgeflow.api.project.api;
 import java.time.Instant;
 import java.util.UUID;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
@@ -25,14 +26,14 @@ public final class ProjectModels {
     }
 
     public record ProjectResponse(
-        UUID id,
-        String code,
-        String name,
-        String customerName,
-        String status,
-        long requirementCount,
-        Instant createdAt,
-        Instant updatedAt
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) UUID id,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String code,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String name,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true) String customerName,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String status,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) long requirementCount,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) Instant createdAt,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) Instant updatedAt
     ) {
     }
 }

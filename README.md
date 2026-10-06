@@ -7,6 +7,7 @@ AI-assisted requirements workspace for Japanese–Vietnamese software teams.
 - Live Project and Requirement REST API backed by PostgreSQL
 - Project switcher with create, edit, and archive workflows
 - Server-side requirement search, status filters, sorting, pagination, and archive workflow
+- OpenAPI contract, Swagger UI, and generated TypeScript API types
 - Stable requirement identity with append-only bilingual revisions
 - BrSE review/confirmation workflow and revision history
 - Synthetic Japanese–Vietnamese demo workspace (no customer data)
@@ -45,6 +46,14 @@ mvn spring-boot:run -Dspring-boot.run.profiles=dev
 
 The API runs at `http://127.0.0.1:8080`. Check liveness at
 `/api/v1/health` and database readiness at `/actuator/health`.
+
+Open Swagger UI at `http://127.0.0.1:8080/swagger-ui.html` or read the JSON
+contract at `http://127.0.0.1:8080/v3/api-docs`. With the backend running,
+regenerate frontend API types from the contract with:
+
+```bash
+npm run api:generate
+```
 
 Run the PostgreSQL integration test with:
 

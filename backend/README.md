@@ -48,6 +48,9 @@ Requirement listing supports `status`, `query`, `page`, `size`, `sortBy`,
 `direction`, and `includeArchived` query parameters. Archived requirements are
 excluded by default and retain their stable ID and complete revision history.
 
+Interactive documentation is available at `/swagger-ui.html`, and the machine-readable
+OpenAPI contract used by the frontend generator is available at `/v3/api-docs`.
+
 The default profile only loads production-safe schema migrations from
 `db/migration`. The `dev` profile additionally loads synthetic
 Japanese–Vietnamese portfolio data from `db/devdata`; it contains no customer

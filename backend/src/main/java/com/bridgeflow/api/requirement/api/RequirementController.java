@@ -20,10 +20,16 @@ import com.bridgeflow.api.requirement.api.RequirementModels.RequirementPageRespo
 import com.bridgeflow.api.requirement.application.RequirementService;
 import com.bridgeflow.api.requirement.domain.RequirementStatus;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("/api/v1")
+@Tag(name = "Requirements", description = "Requirement revisions and review lifecycle")
 public class RequirementController {
 
     private final RequirementService requirementService;
@@ -33,6 +39,7 @@ public class RequirementController {
     }
 
     @GetMapping("/projects/{projectId}/requirements")
+    @Operation(operationId = "listRequirements", summary = "Search and page project requirements")
     public RequirementPageResponse list(
         @PathVariable UUID projectId,
         @RequestParam(required = false) RequirementStatus status,
@@ -40,7 +47,9 @@ public class RequirementController {
         @RequestParam(defaultValue = "") String query,
         @RequestParam(defaultValue = "0") int page,
         @RequestParam(defaultValue = "20") int size,
+        @Parameter(schema = @Schema(allowableValues = {"displayKey", "status", "updatedAt"}))
         @RequestParam(defaultValue = "displayKey") String sortBy,
+        @Parameter(schema = @Schema(allowableValues = {"asc", "desc"}))
         @RequestParam(defaultValue = "asc") String direction
     ) {
         if (page < 0 || size < 1 || size > 100) {
@@ -52,6 +61,8 @@ public class RequirementController {
     }
 
     @PostMapping("/projects/{projectId}/requirements")
+    @Operation(operationId = "createRequirement", summary = "Create a requirement with its first revision")
+    @ApiResponse(responseCode = "201", description = "Requirement created")
     public ResponseEntity<RequirementResponse> create(
         @PathVariable UUID projectId, @Valid @RequestBody CreateRequirementRequest request
     ) {
@@ -60,11 +71,13 @@ public class RequirementController {
     }
 
     @GetMapping("/requirements/{requirementId}")
+    @Operation(operationId = "getRequirement", summary = "Get a requirement and its revision history")
     public RequirementResponse get(@PathVariable UUID requirementId) {
         return requirementService.get(requirementId);
     }
 
     @PostMapping("/requirements/{requirementId}/revisions")
+    @Operation(operationId = "addRequirementRevision", summary = "Add a requirement revision")
     public ResponseEntity<RequirementResponse> addRevision(
         @PathVariable UUID requirementId, @Valid @RequestBody CreateRevisionRequest request
     ) {
@@ -72,6 +85,7 @@ public class RequirementController {
     }
 
     @PostMapping("/requirements/{requirementId}/revisions/{revisionId}/confirm")
+    @Operation(operationId = "confirmRequirementRevision", summary = "Confirm a requirement revision")
     public RequirementResponse confirm(
         @PathVariable UUID requirementId,
         @PathVariable UUID revisionId,
@@ -81,6 +95,7 @@ public class RequirementController {
     }
 
     @PostMapping("/requirements/{requirementId}/archive")
+    @Operation(operationId = "archiveRequirement", summary = "Archive a requirement")
     public RequirementResponse archive(@PathVariable UUID requirementId) {
         return requirementService.archive(requirementId);
     }

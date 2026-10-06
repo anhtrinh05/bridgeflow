@@ -6,6 +6,7 @@ import java.util.UUID;
 
 import com.bridgeflow.api.requirement.domain.ChangeType;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -33,38 +34,38 @@ public final class RequirementModels {
     }
 
     public record RevisionResponse(
-        UUID id,
-        int revisionNumber,
-        String japaneseText,
-        String vietnameseText,
-        String changeType,
-        String reviewStatus,
-        Instant createdAt,
-        UUID confirmedBy,
-        Instant confirmedAt
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) UUID id,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) int revisionNumber,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String japaneseText,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String vietnameseText,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String changeType,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String reviewStatus,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) Instant createdAt,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true) UUID confirmedBy,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true) Instant confirmedAt
     ) {
     }
 
     public record RequirementResponse(
-        UUID id,
-        UUID projectId,
-        String displayKey,
-        String status,
-        UUID currentRevisionId,
-        RevisionResponse latestRevision,
-        List<RevisionResponse> revisions,
-        Instant createdAt,
-        Instant updatedAt,
-        Instant archivedAt
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) UUID id,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) UUID projectId,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String displayKey,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String status,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true) UUID currentRevisionId,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true) RevisionResponse latestRevision,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) List<RevisionResponse> revisions,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) Instant createdAt,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) Instant updatedAt,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true) Instant archivedAt
     ) {
     }
 
     public record RequirementPageResponse(
-        List<RequirementResponse> items,
-        int page,
-        int size,
-        long totalElements,
-        int totalPages
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) List<RequirementResponse> items,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) int page,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) int size,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) long totalElements,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) int totalPages
     ) {
     }
 }
