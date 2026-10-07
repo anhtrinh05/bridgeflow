@@ -10,11 +10,12 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { GlossaryWorkspace } from "@/components/glossary-workspace";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AuthUser, bridgeFlowApi, Project, Requirement } from "@/lib/bridgeflow-api";
 const nav = [
   [LayoutDashboard, "Tổng quan"], [FileText, "Tài liệu"],
-  [BookOpenText, "Requirements"], [MessageSquareText, "Q&A"],
+  [Languages, "Thuật ngữ"], [BookOpenText, "Requirements"], [MessageSquareText, "Q&A"],
   [TestTube2, "Test cases"], [GitCompareArrows, "Thay đổi"],
 ] as const;
 const statusMeta: Record<string, { label: string; colors: string }> = {
@@ -56,6 +57,7 @@ export default function Home() {
   const [projectEditor, setProjectEditor] = useState<"create" | "edit" | null>(null);
   const [projectMenuOpen, setProjectMenuOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [activeView, setActiveView] = useState<"requirements" | "glossary">("requirements");
 
   const load = useCallback(async (preferredProjectId?: string) => {
     setLoading(true);
@@ -318,14 +320,14 @@ export default function Home() {
               {project && <div className="border-t border-slate-100 p-1.5"><Button variant="ghost" size="sm" disabled={saving || !canAdminProject} onClick={() => void archiveCurrentProject()} className="w-full justify-start text-red-600 hover:bg-red-50 hover:text-red-700"><Archive /> Archive project</Button></div>}
             </div>}
           </div>
-          <nav className="space-y-1">{nav.map(([Icon, label]) => <button key={label} className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition ${label === "Requirements" ? "bg-[#e7eff7] text-[#123a63]" : "text-slate-600 hover:bg-white"}`}><Icon className="size-[18px]" />{label}{label === "Requirements" && <span className="ml-auto rounded-md bg-white/80 px-1.5 py-0.5 text-[11px] text-slate-500">{requirements.length}</span>}</button>)}</nav>
+          <nav className="space-y-1">{nav.map(([Icon, label]) => { const isActive = (label === "Requirements" && activeView === "requirements") || (label === "Thuật ngữ" && activeView === "glossary"); return <button key={label} onClick={() => { if (label === "Requirements") setActiveView("requirements"); if (label === "Thuật ngữ") setActiveView("glossary"); }} className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition ${isActive ? "bg-[#e7eff7] text-[#123a63]" : "text-slate-600 hover:bg-white"}`}><Icon className="size-[18px]" />{label}{label === "Requirements" && <span className="ml-auto rounded-md bg-white/80 px-1.5 py-0.5 text-[11px] text-slate-500">{requirements.length}</span>}</button>; })}</nav>
           <div className="mt-6 border-t border-slate-200 pt-5"><p className="mb-2 px-3 text-[11px] font-bold uppercase tracking-wider text-slate-400">Không gian làm việc</p><button className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-600"><Users className="size-[18px]" /> Thành viên</button><button className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-600"><Settings className="size-[18px]" /> Cài đặt</button></div>
         </aside>
 
         <section className="min-w-0 flex-1 p-4 md:p-6 xl:p-8">
-          <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between"><div><div className="mb-2 flex items-center gap-2 text-xs font-medium text-slate-500"><FolderKanban className="size-3.5" /> {project?.name ?? "Project"} <span>/</span> Requirements {project && <Badge variant="outline">{project.role}</Badge>}</div><h1 className="text-2xl font-bold tracking-tight md:text-3xl">Phân tích yêu cầu</h1><p className="mt-1 text-sm text-slate-500">Dữ liệu song ngữ được đọc trực tiếp từ PostgreSQL qua Spring Boot API.</p></div><div className="flex gap-2"><Button variant="outline" className="border-slate-200 bg-white"><PanelLeftClose /> Traceability</Button><Button disabled={!project || !canEditRequirement} onClick={() => setEditor("create")} className="bg-[#123a63] hover:bg-[#0d2e50]"><Plus /> Thêm yêu cầu</Button></div></div>
+          <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between"><div><div className="mb-2 flex items-center gap-2 text-xs font-medium text-slate-500"><FolderKanban className="size-3.5" /> {project?.name ?? "Project"} <span>/</span> {activeView === "requirements" ? "Requirements" : "Thuật ngữ"} {project && <Badge variant="outline">{project.role}</Badge>}</div><h1 className="text-2xl font-bold tracking-tight md:text-3xl">{activeView === "requirements" ? "Phân tích yêu cầu" : "Glossary song ngữ"}</h1><p className="mt-1 text-sm text-slate-500">{activeView === "requirements" ? "Dữ liệu song ngữ được đọc trực tiếp từ PostgreSQL qua Spring Boot API." : "Chuẩn hóa thuật ngữ Nhật–Việt dùng chung trong toàn bộ project."}</p></div>{activeView === "requirements" && <div className="flex gap-2"><Button variant="outline" className="border-slate-200 bg-white"><PanelLeftClose /> Traceability</Button><Button disabled={!project || !canEditRequirement} onClick={() => setEditor("create")} className="bg-[#123a63] hover:bg-[#0d2e50]"><Plus /> Thêm yêu cầu</Button></div>}</div>
           {error && <div className="mb-4 flex items-center gap-3 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700"><AlertCircle className="size-4 shrink-0" /><span className="flex-1">{error}</span><Button variant="ghost" size="sm" onClick={() => void load()}><RefreshCw /> Thử lại</Button></div>}
-          {loading ? <div className="grid min-h-96 place-items-center rounded-2xl border border-slate-200 bg-white"><div className="text-center text-sm text-slate-500"><LoaderCircle className="mx-auto mb-3 size-6 animate-spin text-[#2878ad]" />Đang tải workspace…</div></div> : !project ? <EmptyState title="Chưa có project" description="Tạo project đầu tiên để bắt đầu quản lý requirement." action={<Button onClick={() => setProjectEditor("create")} className="mt-4 bg-[#123a63] hover:bg-[#0d2e50]"><Plus /> Tạo project</Button>} /> : (
+          {activeView === "glossary" ? (!project ? <EmptyState title="Chưa có project" description="Tạo project đầu tiên để quản lý glossary." action={<Button onClick={() => setProjectEditor("create")} className="mt-4 bg-[#123a63] hover:bg-[#0d2e50]"><Plus /> Tạo project</Button>} /> : <GlossaryWorkspace key={project.id} project={project} />) : loading ? <div className="grid min-h-96 place-items-center rounded-2xl border border-slate-200 bg-white"><div className="text-center text-sm text-slate-500"><LoaderCircle className="mx-auto mb-3 size-6 animate-spin text-[#2878ad]" />Đang tải workspace…</div></div> : !project ? <EmptyState title="Chưa có project" description="Tạo project đầu tiên để bắt đầu quản lý requirement." action={<Button onClick={() => setProjectEditor("create")} className="mt-4 bg-[#123a63] hover:bg-[#0d2e50]"><Plus /> Tạo project</Button>} /> : (
             <div className="grid gap-4 xl:grid-cols-[minmax(350px,0.92fr)_minmax(520px,1.45fr)]">
               <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
                 <div className="space-y-2 border-b border-slate-200 p-3">

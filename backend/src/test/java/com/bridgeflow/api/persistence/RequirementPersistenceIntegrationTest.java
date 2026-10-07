@@ -205,6 +205,8 @@ class RequirementPersistenceIntegrationTest {
             .required("responses").has("201")).isTrue();
         assertThat(contract.required("paths").required("/api/v1/projects/{projectId}/requirements")
             .required("get").required("operationId").asText()).isEqualTo("listRequirements");
+        assertThat(contract.required("paths").required("/api/v1/projects/{projectId}/glossary")
+            .required("get").required("operationId").asText()).isEqualTo("listGlossaryTerms");
         var schemas = contract.required("components").required("schemas");
         assertThat(schemas.has("RequirementResponse")).isTrue();
         assertThat(schemas.required("RequirementResponse").required("required").toString())
@@ -340,6 +342,47 @@ class RequirementPersistenceIntegrationTest {
             {"name":"Forbidden update","customerName":null}
             """, 403);
         assertThat(forbidden.required("code").asText()).isEqualTo("ACCESS_DENIED");
+        var glossaryForbidden = sendJson("POST", "/api/v1/projects/" + projectId + "/glossary", """
+            {"japaneseTerm":"閲覧者","vietnameseTerm":"Người xem","notes":null}
+            """, 403);
+        assertThat(glossaryForbidden.required("code").asText()).isEqualTo("ACCESS_DENIED");
+    }
+
+    @Test
+    void managesAProjectGlossaryAndRecordsAuditEvents() throws Exception {
+        loginTestUser();
+        var suffix = UUID.randomUUID().toString().substring(0, 8).toUpperCase();
+        var project = sendJson("POST", "/api/v1/projects", """
+            {"code":"GLOSS-%s","name":"Glossary integration project","customerName":null}
+            """.formatted(suffix), 201);
+        var projectId = project.required("id").asText();
+
+        var term = sendJson("POST", "/api/v1/projects/" + projectId + "/glossary", """
+            {"japaneseTerm":"注文履歴","vietnameseTerm":"Lịch sử đơn hàng","notes":"画面タイトル"}
+            """, 201);
+        var termId = term.required("id").asText();
+        assertThat(term.required("japaneseTerm").asText()).isEqualTo("注文履歴");
+
+        term = sendJson("PATCH", "/api/v1/projects/" + projectId + "/glossary/" + termId, """
+            {"japaneseTerm":"注文履歴","vietnameseTerm":"Lịch sử đặt hàng","notes":"Thống nhất UI"}
+            """, 200);
+        assertThat(term.required("vietnameseTerm").asText()).isEqualTo("Lịch sử đặt hàng");
+
+        var search = sendJson(
+            "GET", "/api/v1/projects/" + projectId + "/glossary?query=%E6%B3%A8%E6%96%87", null, 200
+        );
+        assertThat(search).hasSize(1);
+        assertThat(search.get(0).required("id").asText()).isEqualTo(termId);
+
+        sendJson("DELETE", "/api/v1/projects/" + projectId + "/glossary/" + termId, "{}", 204);
+        assertThat(sendJson("GET", "/api/v1/projects/" + projectId + "/glossary", null, 200)).isEmpty();
+        assertThat(auditEventRepository.findAllByProjectIdOrderByOccurredAtDesc(UUID.fromString(projectId)))
+            .extracting(event -> event.getAction())
+            .contains(
+                AuditAction.GLOSSARY_TERM_CREATED,
+                AuditAction.GLOSSARY_TERM_UPDATED,
+                AuditAction.GLOSSARY_TERM_DELETED
+            );
     }
 
     private UUID loginTestUser() throws Exception {

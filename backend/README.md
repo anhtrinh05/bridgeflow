@@ -50,6 +50,8 @@ Except for login, health checks, and API documentation, endpoints require an
 | `GET` | `/api/v1/projects/{projectId}` | Read a project |
 | `PATCH` | `/api/v1/projects/{projectId}` | Update project details |
 | `POST` | `/api/v1/projects/{projectId}/archive` | Archive a project |
+| `GET` / `POST` | `/api/v1/projects/{projectId}/glossary` | Search or create glossary terms |
+| `PATCH` / `DELETE` | `/api/v1/projects/{projectId}/glossary/{termId}` | Update or delete a glossary term |
 | `GET` / `POST` | `/api/v1/projects/{projectId}/requirements` | Search/page or create requirements |
 | `GET` | `/api/v1/requirements/{requirementId}` | Read a requirement and its revision history |
 | `POST` | `/api/v1/requirements/{requirementId}/revisions` | Add a bilingual revision |
@@ -63,8 +65,9 @@ excluded by default and retain their stable ID and complete revision history.
 Project roles are enforced by the API: `ADMIN` manages the project,
 `ADMIN`/`BRSE` confirm and archive requirements,
 `ADMIN`/`BRSE`/`DEVELOPER` create requirements and revisions, and `VIEWER` has
-read-only access. Project and requirement mutations create audit events tied to
-the authenticated user.
+read-only access. `ADMIN` and `BRSE` manage glossary terms; every project,
+requirement, and glossary mutation creates an audit event tied to the
+authenticated user.
 
 Interactive documentation is available at `/swagger-ui.html`, and the machine-readable
 OpenAPI contract used by the frontend generator is available at `/v3/api-docs`.

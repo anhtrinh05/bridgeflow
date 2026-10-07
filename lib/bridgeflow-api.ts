@@ -6,6 +6,7 @@ export type Revision = components["schemas"]["RevisionResponse"];
 export type Requirement = components["schemas"]["RequirementResponse"];
 export type AuthUser = components["schemas"]["UserResponse"];
 export type LoginResponse = components["schemas"]["LoginResponse"];
+export type GlossaryTerm = components["schemas"]["GlossaryTermResponse"];
 
 type CreateProjectRequest = components["schemas"]["CreateProjectRequest"];
 type UpdateProjectRequest = components["schemas"]["UpdateProjectRequest"];
@@ -13,6 +14,7 @@ type CreateRequirementRequest = components["schemas"]["CreateRequirementRequest"
 type CreateRevisionRequest = components["schemas"]["CreateRevisionRequest"];
 type ListRequirementOptions = NonNullable<operations["listRequirements"]["parameters"]["query"]>;
 type LoginRequest = components["schemas"]["LoginRequest"];
+type SaveGlossaryTermRequest = components["schemas"]["SaveGlossaryTermRequest"];
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8080/api/v1";
 const TOKEN_KEY = "bridgeflow.access-token";
@@ -94,4 +96,20 @@ export const bridgeFlowApi = {
     }),
   archiveRequirement: (requirementId: string) =>
     request<Requirement>(`/requirements/${requirementId}/archive`, { method: "POST", body: "{}" }),
+  listGlossaryTerms: (projectId: string, query = "") => {
+    const params = new URLSearchParams();
+    if (query.trim()) params.set("query", query.trim());
+    const suffix = params.size ? `?${params}` : "";
+    return request<GlossaryTerm[]>(`/projects/${projectId}/glossary${suffix}`);
+  },
+  createGlossaryTerm: (projectId: string, body: SaveGlossaryTermRequest) =>
+    request<GlossaryTerm>(`/projects/${projectId}/glossary`, {
+      method: "POST", body: JSON.stringify(body),
+    }),
+  updateGlossaryTerm: (projectId: string, termId: string, body: SaveGlossaryTermRequest) =>
+    request<GlossaryTerm>(`/projects/${projectId}/glossary/${termId}`, {
+      method: "PATCH", body: JSON.stringify(body),
+    }),
+  deleteGlossaryTerm: (projectId: string, termId: string) =>
+    request<void>(`/projects/${projectId}/glossary/${termId}`, { method: "DELETE" }),
 };

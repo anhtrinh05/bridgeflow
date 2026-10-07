@@ -86,6 +86,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/projects/{projectId}/glossary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Search project glossary terms */
+        get: operations["listGlossaryTerms"];
+        put?: never;
+        /** Create a glossary term */
+        post: operations["createGlossaryTerm"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/projects/{projectId}/archive": {
         parameters: {
             query?: never;
@@ -153,6 +171,24 @@ export interface paths {
         head?: never;
         /** Update a project */
         patch: operations["updateProject"];
+        trace?: never;
+    };
+    "/api/v1/projects/{projectId}/glossary/{termId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete a glossary term */
+        delete: operations["deleteGlossaryTerm"];
+        options?: never;
+        head?: never;
+        /** Update a glossary term */
+        patch: operations["updateGlossaryTerm"];
         trace?: never;
     };
     "/api/v1/requirements/{requirementId}": {
@@ -273,6 +309,26 @@ export interface components {
             displayKey: string;
             japaneseText: string;
             vietnameseText: string;
+        };
+        SaveGlossaryTermRequest: {
+            japaneseTerm: string;
+            vietnameseTerm: string;
+            notes?: string;
+        };
+        GlossaryTermResponse: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            projectId?: string;
+            japaneseTerm?: string;
+            vietnameseTerm?: string;
+            notes?: string;
+            /** Format: uuid */
+            createdBy?: string;
+            /** Format: date-time */
+            createdAt?: string;
+            /** Format: date-time */
+            updatedAt?: string;
         };
         LoginRequest: {
             /** Format: email */
@@ -494,6 +550,56 @@ export interface operations {
             };
         };
     };
+    listGlossaryTerms: {
+        parameters: {
+            query?: {
+                query?: string;
+            };
+            header?: never;
+            path: {
+                projectId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["GlossaryTermResponse"][];
+                };
+            };
+        };
+    };
+    createGlossaryTerm: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SaveGlossaryTermRequest"];
+            };
+        };
+        responses: {
+            /** @description Glossary term created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["GlossaryTermResponse"];
+                };
+            };
+        };
+    };
     archiveProject: {
         parameters: {
             query?: never;
@@ -604,6 +710,54 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ProjectResponse"];
+                };
+            };
+        };
+    };
+    deleteGlossaryTerm: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: string;
+                termId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Glossary term deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    updateGlossaryTerm: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: string;
+                termId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SaveGlossaryTermRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["GlossaryTermResponse"];
                 };
             };
         };

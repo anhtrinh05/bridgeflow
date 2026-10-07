@@ -82,3 +82,11 @@ Q&A items, acceptance criteria, and test cases should link to a specific require
 ## MVP simplification
 
 The MVP uses PostgreSQL UUIDs and relational indexes. Vector matching is deferred. Initial matching can combine normalized text hashes, document section keys, and AI-proposed mappings that require human approval.
+
+## Project glossary
+
+Each glossary term belongs to exactly one project and stores a Japanese term,
+its preferred Vietnamese equivalent, optional usage notes, the creating user,
+and timestamps. Japanese terms are unique within a project. All members can
+search the glossary; only `ADMIN` and `BRSE` members can create, update, or
+delete terms. Mutations are recorded in the project audit trail.

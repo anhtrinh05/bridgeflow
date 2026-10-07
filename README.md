@@ -10,6 +10,7 @@ AI-assisted requirements workspace for Japanese–Vietnamese software teams.
 - OpenAPI contract, Swagger UI, and generated TypeScript API types
 - Stateless bearer authentication with project-scoped roles
 - Audit events for project and requirement lifecycle changes
+- Project-scoped Japanese–Vietnamese glossary with search and role-aware editing
 - Stable requirement identity with append-only bilingual revisions
 - BrSE review/confirmation workflow and revision history
 - Synthetic Japanese–Vietnamese demo workspace (no customer data)
@@ -86,7 +87,7 @@ See [backend/README.md](backend/README.md) for details and optional tool paths.
 
 ## Planned milestones
 
-1. Document and glossary management
+1. Document upload and version metadata
 2. Japanese document ingestion and requirement extraction
 3. Q&A, acceptance criteria, and test-case generation
 4. Requirement traceability, change-impact analysis, and production observability
