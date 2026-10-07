@@ -13,6 +13,7 @@ public interface RequirementRevisionRepository extends JpaRepository<Requirement
     List<RequirementRevision> findByRequirementIdOrderByRevisionNumberAsc(UUID requirementId);
 
     Optional<RequirementRevision> findFirstByRequirementIdOrderByRevisionNumberDesc(UUID requirementId);
+    List<RequirementRevision> findAllByDocumentVersionIdOrderByCreatedAtAsc(UUID documentVersionId);
 
     Optional<RequirementRevision> findByIdAndRequirementId(UUID id, UUID requirementId);
 

@@ -43,6 +43,9 @@ public class RequirementRevision {
     @Column(name = "document_version_id")
     private UUID documentVersionId;
 
+    @Column(name = "source_anchor", length = 500)
+    private String sourceAnchor;
+
     @Column(name = "japanese_text", nullable = false, columnDefinition = "text")
     private String japaneseText;
 
@@ -90,6 +93,19 @@ public class RequirementRevision {
         ChangeType changeType,
         UUID createdBy
     ) {
+        this(requirement, revisionNumber, japaneseText, vietnameseText, changeType, createdBy, null, null);
+    }
+
+    public RequirementRevision(
+        Requirement requirement,
+        int revisionNumber,
+        String japaneseText,
+        String vietnameseText,
+        ChangeType changeType,
+        UUID createdBy,
+        UUID documentVersionId,
+        String sourceAnchor
+    ) {
         if (revisionNumber < 1) {
             throw new IllegalArgumentException("revisionNumber must be at least 1");
         }
@@ -99,6 +115,8 @@ public class RequirementRevision {
         this.vietnameseText = requireText(vietnameseText, "vietnameseText");
         this.changeType = Objects.requireNonNull(changeType, "changeType is required");
         this.createdBy = createdBy;
+        this.documentVersionId = documentVersionId;
+        this.sourceAnchor = normalizeOptionalText(sourceAnchor);
     }
 
     @PrePersist
@@ -130,6 +148,10 @@ public class RequirementRevision {
 
     public UUID getDocumentVersionId() {
         return documentVersionId;
+    }
+
+    public String getSourceAnchor() {
+        return sourceAnchor;
     }
 
     public String getJapaneseText() {
@@ -170,5 +192,11 @@ public class RequirementRevision {
             throw new IllegalArgumentException(fieldName + " must not be blank");
         }
         return normalized;
+    }
+
+    private static String normalizeOptionalText(String value) {
+        if (value == null || value.isBlank()) return null;
+        var normalized = value.trim();
+        return normalized.length() <= 500 ? normalized : normalized.substring(0, 500);
     }
 }

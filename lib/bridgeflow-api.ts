@@ -9,6 +9,7 @@ export type LoginResponse = components["schemas"]["LoginResponse"];
 export type GlossaryTerm = components["schemas"]["GlossaryTermResponse"];
 export type ProjectDocument = components["schemas"]["DocumentResponse"];
 export type DocumentVersion = components["schemas"]["DocumentVersionResponse"];
+export type AiJob = components["schemas"]["AiJobResponse"];
 
 type CreateProjectRequest = components["schemas"]["CreateProjectRequest"];
 type UpdateProjectRequest = components["schemas"]["UpdateProjectRequest"];
@@ -151,4 +152,10 @@ export const bridgeFlowApi = {
     request<ProjectDocument>(`/documents/${documentId}/archive`, { method: "POST", body: "{}" }),
   downloadDocumentVersion: (documentId: string, versionId: string) =>
     requestBlob(`/documents/${documentId}/versions/${versionId}/content`),
+  listAiJobs: (projectId: string) =>
+    request<AiJob[]>(`/projects/${projectId}/ai-jobs`),
+  extractRequirements: (documentId: string, versionId: string) =>
+    request<AiJob>(`/documents/${documentId}/versions/${versionId}/ai-extractions`, {
+      method: "POST", body: "{}",
+    }),
 };

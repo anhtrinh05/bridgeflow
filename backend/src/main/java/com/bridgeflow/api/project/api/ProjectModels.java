@@ -21,7 +21,8 @@ public final class ProjectModels {
 
     public record UpdateProjectRequest(
         @NotBlank @Size(max = 160) String name,
-        @Size(max = 160) String customerName
+        @Size(max = 160) String customerName,
+        Boolean aiEnabled
     ) {
     }
 
@@ -32,6 +33,7 @@ public final class ProjectModels {
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true) String customerName,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String status,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String role,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) boolean aiEnabled,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) long requirementCount,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) Instant createdAt,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) Instant updatedAt

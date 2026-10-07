@@ -62,6 +62,7 @@ class RequirementPersistenceIntegrationTest {
     @DynamicPropertySource
     static void databaseProperties(DynamicPropertyRegistry registry) {
         registry.add("bridgeflow.storage.root", () -> DOCUMENT_STORAGE.toString());
+        registry.add("bridgeflow.ai.provider", () -> "stub");
         var externalUrl = System.getenv("BRIDGEFLOW_TEST_DB_URL");
         if (externalUrl != null && !externalUrl.isBlank()) {
             // The external database must be disposable: Flyway migrates it at startup.
@@ -223,6 +224,9 @@ class RequirementPersistenceIntegrationTest {
             .required("get").required("operationId").asText()).isEqualTo("listGlossaryTerms");
         assertThat(contract.required("paths").required("/api/v1/projects/{projectId}/documents")
             .required("post").required("operationId").asText()).isEqualTo("uploadDocument");
+        assertThat(contract.required("paths")
+            .required("/api/v1/documents/{documentId}/versions/{versionId}/ai-extractions")
+            .required("post").required("operationId").asText()).isEqualTo("extractRequirements");
         var schemas = contract.required("components").required("schemas");
         assertThat(schemas.has("RequirementResponse")).isTrue();
         assertThat(schemas.required("RequirementResponse").required("required").toString())
@@ -243,6 +247,7 @@ class RequirementPersistenceIntegrationTest {
             """, 200);
         assertThat(project.required("name").asText()).isEqualTo("Updated API project");
         assertThat(project.required("customerName").asText()).isEqualTo("更新株式会社");
+        assertThat(project.required("aiEnabled").asBoolean()).isFalse();
 
         var requirement = sendJson("POST", "/api/v1/projects/" + projectId + "/requirements", """
             {"displayKey":"REQ-001","japaneseText":"利用者は要件を確認できる。","vietnameseText":"Người dùng có thể xem yêu cầu."}
@@ -460,6 +465,71 @@ class RequirementPersistenceIntegrationTest {
                 AuditAction.DOCUMENT_VERSION_ADDED,
                 AuditAction.DOCUMENT_ARCHIVED
             );
+    }
+
+    @Test
+    void extractsDraftRequirementsWithAProjectGlossaryAndAnAuditedAiJob() throws Exception {
+        loginTestUser();
+        var suffix = UUID.randomUUID().toString().substring(0, 8).toUpperCase();
+        var project = sendJson("POST", "/api/v1/projects", """
+            {"code":"AI-%s","name":"AI extraction project","customerName":null}
+            """.formatted(suffix), 201);
+        var projectId = project.required("id").asText();
+        assertThat(project.required("aiEnabled").asBoolean()).isFalse();
+
+        sendJson("POST", "/api/v1/projects/" + projectId + "/glossary", """
+            {"japaneseTerm":"注文履歴","vietnameseTerm":"Lịch sử đơn hàng","notes":"UI label"}
+            """, 201);
+
+        var content = "利用者は注文履歴を確認できる。\n管理者は注文を検索できる。"
+            .getBytes(StandardCharsets.UTF_8);
+        var document = sendMultipart(
+            "/api/v1/projects/" + projectId + "/documents",
+            "AI source", "requirements.txt", "text/plain", content, 201
+        );
+        var documentId = document.required("id").asText();
+        var versionId = document.required("latestVersion").required("id").asText();
+
+        var disabled = sendJson(
+            "POST", "/api/v1/documents/" + documentId + "/versions/" + versionId + "/ai-extractions",
+            "{}", 400
+        );
+        assertThat(disabled.required("message").asText()).contains("AI chưa được bật");
+
+        project = sendJson("PATCH", "/api/v1/projects/" + projectId, """
+            {"name":"AI extraction project","customerName":null,"aiEnabled":true}
+            """, 200);
+        assertThat(project.required("aiEnabled").asBoolean()).isTrue();
+
+        var job = sendJson(
+            "POST", "/api/v1/documents/" + documentId + "/versions/" + versionId + "/ai-extractions",
+            "{}", 200
+        );
+        assertThat(job.required("status").asText()).isEqualTo("COMPLETED");
+        assertThat(job.required("provider").asText()).isEqualTo("stub");
+        assertThat(job.required("candidateCount").asInt()).isEqualTo(2);
+        assertThat(job.required("requirementIds")).hasSize(2);
+        assertThat(job.required("errorCode").isNull()).isTrue();
+
+        var requirements = sendJson(
+            "GET", "/api/v1/projects/" + projectId + "/requirements?status=DRAFT", null, 200
+        );
+        assertThat(requirements.required("items")).hasSize(2);
+        var requirementId = requirements.required("items").get(0).required("id").asText();
+        var detail = sendJson("GET", "/api/v1/requirements/" + requirementId, null, 200);
+        assertThat(detail.required("latestRevision").required("documentVersionId").asText()).isEqualTo(versionId);
+        assertThat(detail.required("latestRevision").required("sourceAnchor").asText()).startsWith("line:");
+        assertThat(detail.toString()).contains("Lịch sử đơn hàng");
+
+        var sameJob = sendJson(
+            "POST", "/api/v1/documents/" + documentId + "/versions/" + versionId + "/ai-extractions",
+            "{}", 200
+        );
+        assertThat(sameJob.required("id").asText()).isEqualTo(job.required("id").asText());
+        assertThat(sendJson("GET", "/api/v1/projects/" + projectId + "/ai-jobs", null, 200)).hasSize(1);
+        assertThat(auditEventRepository.findAllByProjectIdOrderByOccurredAtDesc(UUID.fromString(projectId)))
+            .extracting(event -> event.getAction())
+            .contains(AuditAction.AI_EXTRACTION_REQUESTED, AuditAction.AI_EXTRACTION_COMPLETED);
     }
 
     private UUID loginTestUser() throws Exception {

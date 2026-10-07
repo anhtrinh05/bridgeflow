@@ -88,6 +88,6 @@ See [backend/README.md](backend/README.md) for details and optional tool paths.
 
 ## Planned milestones
 
-1. Japanese document ingestion and requirement extraction
+1. Japanese document ingestion and requirement extraction (in progress: AI draft extraction implemented)
 2. Q&A, acceptance criteria, and test-case generation
 3. Requirement traceability, change-impact analysis, and production observability

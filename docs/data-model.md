@@ -83,6 +83,14 @@ Q&A items, acceptance criteria, and test cases should link to a specific require
 
 The MVP uses PostgreSQL UUIDs and relational indexes. Vector matching is deferred. Initial matching can combine normalized text hashes, document section keys, and AI-proposed mappings that require human approval.
 
+### AiJob
+
+Each extraction attempt records its project, immutable document version, purpose,
+provider/model identifiers, correlation ID, requesting user, lifecycle timestamps,
+candidate count, and a bounded error summary. Raw prompts and document text are not
+stored in the job table. A successful job creates only draft requirement revisions;
+each revision retains `document_version_id` and `source_anchor` provenance.
+
 ## Project glossary
 
 Each glossary term belongs to exactly one project and stores a Japanese term,

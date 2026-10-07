@@ -85,6 +85,34 @@ volume and add malware scanning before ingestion.
 Interactive documentation is available at `/swagger-ui.html`, and the machine-readable
 OpenAPI contract used by the frontend generator is available at `/v3/api-docs`.
 
+## AI requirement extraction
+
+`ADMIN` and `BRSE` members can run glossary-aware requirement extraction for an
+immutable document version after an admin enables AI on that project. PDF, DOCX,
+TXT, and Markdown text is extracted locally with Apache Tika. Only the bounded,
+redacted text needed for that job is sent to the configured provider. Results are
+saved as draft requirements linked to the source document version and must be
+confirmed by a human reviewer.
+
+Production OpenAI configuration is provided only through environment variables:
+
+```text
+BRIDGEFLOW_AI_PROVIDER=openai
+OPENAI_API_KEY=<secret>
+OPENAI_MODEL=gpt-6-astra
+BRIDGEFLOW_AI_REDACT_TERMS=<comma-separated literal values>
+```
+
+The API key is never stored in project data or source control. The integration uses
+the Responses API with [Structured Outputs](https://developers.openai.com/api/docs/guides/structured-outputs)
+and `store: false`. The default
+provider is `disabled`; automated tests use the deterministic `stub` provider.
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| `POST` | `/api/v1/documents/{documentId}/versions/{versionId}/ai-extractions` | Extract draft requirements once for a document version |
+| `GET` | `/api/v1/projects/{projectId}/ai-jobs` | List persistent AI job results without prompt content |
+
 The default profile only loads production-safe schema migrations from
 `db/migration`. The `dev` profile additionally loads synthetic
 Japanese–Vietnamese portfolio data from `db/devdata`; it contains no customer

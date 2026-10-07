@@ -194,6 +194,7 @@ public class RequirementService {
         return new RevisionResponse(
             revision.getId(), revision.getRevisionNumber(), revision.getJapaneseText(),
             revision.getVietnameseText(), revision.getChangeType().name(), revision.getReviewStatus().name(),
+            revision.getDocumentVersionId(), revision.getSourceAnchor(),
             revision.getCreatedAt(), revision.getConfirmedBy(), revision.getConfirmedAt()
         );
     }

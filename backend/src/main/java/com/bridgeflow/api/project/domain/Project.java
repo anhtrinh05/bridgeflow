@@ -43,6 +43,9 @@ public class Project {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
+    @Column(name = "ai_enabled", nullable = false)
+    private boolean aiEnabled;
+
     protected Project() {
     }
 
@@ -92,9 +95,14 @@ public class Project {
         return updatedAt;
     }
 
-    public void updateDetails(String name, String customerName) {
+    public boolean isAiEnabled() {
+        return aiEnabled;
+    }
+
+    public void updateDetails(String name, String customerName, boolean aiEnabled) {
         this.name = requireText(name, "name");
         this.customerName = normalizeOptionalText(customerName);
+        this.aiEnabled = aiEnabled;
     }
 
     public void archive() {

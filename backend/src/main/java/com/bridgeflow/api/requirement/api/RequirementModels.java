@@ -37,6 +37,8 @@ public final class RequirementModels {
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String vietnameseText,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String changeType,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String reviewStatus,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true) UUID documentVersionId,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true) String sourceAnchor,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) Instant createdAt,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true) UUID confirmedBy,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true) Instant confirmedAt

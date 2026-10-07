@@ -156,6 +156,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/documents/{documentId}/versions/{versionId}/ai-extractions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Extract draft requirements from a document version */
+        post: operations["extractRequirements"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/documents/{documentId}/archive": {
         parameters: {
             query?: never;
@@ -260,6 +277,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/projects/{projectId}/ai-jobs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List AI jobs for a project */
+        get: operations["listAiJobs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/health": {
         parameters: {
             query?: never;
@@ -347,6 +381,9 @@ export interface components {
             vietnameseText: string;
             changeType: string;
             reviewStatus: string;
+            /** Format: uuid */
+            documentVersionId: string | null;
+            sourceAnchor: string | null;
             /** Format: date-time */
             createdAt: string;
             /** Format: uuid */
@@ -367,6 +404,7 @@ export interface components {
             customerName: string | null;
             status: string;
             role: string;
+            aiEnabled: boolean;
             /** Format: int64 */
             requirementCount: number;
             /** Format: date-time */
@@ -430,6 +468,33 @@ export interface components {
             /** Format: date-time */
             createdAt: string;
         };
+        AiJobResponse: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            projectId: string;
+            /** Format: uuid */
+            documentVersionId: string;
+            purpose: string;
+            status: string;
+            provider: string;
+            model: string;
+            /** Format: uuid */
+            correlationId: string;
+            /** Format: uuid */
+            requestedBy: string;
+            /** Format: int32 */
+            candidateCount: number;
+            requirementIds: string[];
+            errorCode: string | null;
+            errorMessage: string | null;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            startedAt: string | null;
+            /** Format: date-time */
+            completedAt: string | null;
+        };
         LoginRequest: {
             /** Format: email */
             email: string;
@@ -450,6 +515,7 @@ export interface components {
         UpdateProjectRequest: {
             name: string;
             customerName?: string;
+            aiEnabled?: boolean;
         };
         RequirementPageResponse: {
             items: components["schemas"]["RequirementResponse"][];
@@ -805,6 +871,29 @@ export interface operations {
             };
         };
     };
+    extractRequirements: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                documentId: string;
+                versionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["AiJobResponse"];
+                };
+            };
+        };
+    };
     archiveDocument: {
         parameters: {
             query?: never;
@@ -985,6 +1074,28 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["RequirementResponse"];
+                };
+            };
+        };
+    };
+    listAiJobs: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["AiJobResponse"][];
                 };
             };
         };

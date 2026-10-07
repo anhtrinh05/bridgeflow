@@ -1,13 +1,14 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
-import { AlertCircle, Archive, Download, FileText, History, LoaderCircle, Plus, Upload, X } from "lucide-react";
+import { AlertCircle, Archive, Download, FileText, History, LoaderCircle, Plus, Sparkles, Upload, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { bridgeFlowApi, Project, ProjectDocument } from "@/lib/bridgeflow-api";
+import { AiJob, bridgeFlowApi, Project, ProjectDocument } from "@/lib/bridgeflow-api";
 
 export function DocumentWorkspace({ project }: { project: Project }) {
   const [documents, setDocuments] = useState<ProjectDocument[]>([]);
+  const [aiJobs, setAiJobs] = useState<AiJob[]>([]);
   const [includeArchived, setIncludeArchived] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -15,12 +16,18 @@ export function DocumentWorkspace({ project }: { project: Project }) {
   const [uploadTarget, setUploadTarget] = useState<ProjectDocument | "new" | null>(null);
   const canUpload = ["ADMIN", "BRSE", "DEVELOPER"].includes(project.role);
   const canArchive = ["ADMIN", "BRSE"].includes(project.role);
+  const canExtract = project.aiEnabled && ["ADMIN", "BRSE"].includes(project.role);
 
   const load = useCallback(async (archived = includeArchived) => {
     setLoading(true);
     setError(null);
     try {
-      setDocuments(await bridgeFlowApi.listDocuments(project.id, archived));
+      const [nextDocuments, nextJobs] = await Promise.all([
+        bridgeFlowApi.listDocuments(project.id, archived),
+        bridgeFlowApi.listAiJobs(project.id),
+      ]);
+      setDocuments(nextDocuments);
+      setAiJobs(nextJobs);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Không thể tải tài liệu.");
     } finally {
@@ -88,6 +95,20 @@ export function DocumentWorkspace({ project }: { project: Project }) {
     }
   }
 
+  async function extract(documentId: string, versionId: string) {
+    setSaving(true);
+    setError(null);
+    try {
+      const job = await bridgeFlowApi.extractRequirements(documentId, versionId);
+      if (job.status === "FAILED") setError(job.errorMessage ?? "AI extraction thất bại.");
+      await load();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Không thể chạy AI extraction.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   return <>
     <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
       <div className="flex flex-col gap-3 border-b border-slate-200 p-4 sm:flex-row sm:items-center sm:justify-between">
@@ -95,7 +116,8 @@ export function DocumentWorkspace({ project }: { project: Project }) {
         {canUpload && <Button onClick={() => setUploadTarget("new")} className="bg-[#123a63] hover:bg-[#0d2e50]"><Upload /> Upload tài liệu</Button>}
       </div>
       {error && <div className="m-4 flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700"><AlertCircle className="size-4 shrink-0" />{error}</div>}
-      {loading ? <div className="grid min-h-72 place-items-center text-sm text-slate-500"><div className="text-center"><LoaderCircle className="mx-auto mb-3 size-6 animate-spin text-[#2878ad]" />Đang tải tài liệu…</div></div> : documents.length === 0 ? <div className="grid min-h-72 place-items-center p-8 text-center"><div><FileText className="mx-auto mb-3 size-9 text-slate-300" /><h2 className="font-semibold">Chưa có tài liệu</h2><p className="mt-1 text-sm text-slate-500">Upload PDF, DOCX, TXT hoặc Markdown để quản lý lịch sử version.</p></div></div> : <div className="space-y-3 bg-slate-50/60 p-4">{documents.map((document) => <article key={document.id} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"><div className="flex flex-col gap-3 sm:flex-row sm:items-start"><div className="grid size-11 shrink-0 place-items-center rounded-xl bg-[#e8f0f7] text-[#123a63]"><FileText className="size-5" /></div><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><h2 className="font-semibold text-slate-900">{document.title}</h2><Badge variant="outline" className={document.status === "ARCHIVED" ? "bg-slate-100 text-slate-500" : "border-emerald-200 bg-emerald-50 text-emerald-700"}>{document.status}</Badge></div><p className="mt-1 text-xs text-slate-400">Stable ID · {document.id.slice(0, 8)} · {document.versions?.length ?? 0} version</p></div>{document.status !== "ARCHIVED" && <div className="flex gap-1">{canUpload && <Button variant="outline" size="sm" onClick={() => setUploadTarget(document)}><Plus /> Version mới</Button>}{canArchive && <Button variant="ghost" size="icon-sm" disabled={saving} onClick={() => void archive(document)} className="text-red-600 hover:bg-red-50 hover:text-red-700"><Archive /></Button>}</div>}</div><div className="mt-4 overflow-hidden rounded-xl border border-slate-100"><div className="flex items-center gap-2 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-500"><History className="size-3.5" /> Lịch sử version</div><div className="divide-y divide-slate-100">{document.versions?.map((version) => <div key={version.id} className="flex flex-col gap-2 px-3 py-3 sm:flex-row sm:items-center"><div className="grid size-8 shrink-0 place-items-center rounded-lg bg-slate-100 text-xs font-bold text-slate-600">v{version.versionNumber}</div><div className="min-w-0 flex-1"><p className="truncate text-sm font-medium">{version.originalFilename}</p><p className="mt-0.5 text-xs text-slate-400">{formatBytes(version.sizeBytes)} · SHA-256 {version.sha256.slice(0, 12)}… · {new Date(version.createdAt).toLocaleString("vi-VN")}</p></div><Button variant="ghost" size="sm" onClick={() => void download(document, version.id)}><Download /> Tải xuống</Button></div>)}</div></div></article>)}</div>}
+      {!project.aiEnabled && <div className="m-4 flex items-start gap-2 rounded-xl border border-violet-200 bg-violet-50 p-3 text-sm text-violet-800"><Sparkles className="mt-0.5 size-4 shrink-0" /><span>AI đang tắt cho project này. Admin có thể bật trong phần chỉnh sửa project sau khi xác nhận chính sách dữ liệu.</span></div>}
+      {loading ? <div className="grid min-h-72 place-items-center text-sm text-slate-500"><div className="text-center"><LoaderCircle className="mx-auto mb-3 size-6 animate-spin text-[#2878ad]" />Đang tải tài liệu…</div></div> : documents.length === 0 ? <div className="grid min-h-72 place-items-center p-8 text-center"><div><FileText className="mx-auto mb-3 size-9 text-slate-300" /><h2 className="font-semibold">Chưa có tài liệu</h2><p className="mt-1 text-sm text-slate-500">Upload PDF, DOCX, TXT hoặc Markdown để quản lý lịch sử version.</p></div></div> : <div className="space-y-3 bg-slate-50/60 p-4">{documents.map((document) => <article key={document.id} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"><div className="flex flex-col gap-3 sm:flex-row sm:items-start"><div className="grid size-11 shrink-0 place-items-center rounded-xl bg-[#e8f0f7] text-[#123a63]"><FileText className="size-5" /></div><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><h2 className="font-semibold text-slate-900">{document.title}</h2><Badge variant="outline" className={document.status === "ARCHIVED" ? "bg-slate-100 text-slate-500" : "border-emerald-200 bg-emerald-50 text-emerald-700"}>{document.status}</Badge></div><p className="mt-1 text-xs text-slate-400">Stable ID · {document.id.slice(0, 8)} · {document.versions?.length ?? 0} version</p></div>{document.status !== "ARCHIVED" && <div className="flex gap-1">{canUpload && <Button variant="outline" size="sm" onClick={() => setUploadTarget(document)}><Plus /> Version mới</Button>}{canArchive && <Button variant="ghost" size="icon-sm" disabled={saving} onClick={() => void archive(document)} className="text-red-600 hover:bg-red-50 hover:text-red-700"><Archive /></Button>}</div>}</div><div className="mt-4 overflow-hidden rounded-xl border border-slate-100"><div className="flex items-center gap-2 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-500"><History className="size-3.5" /> Lịch sử version</div><div className="divide-y divide-slate-100">{document.versions?.map((version) => { const job = aiJobs.find((item) => item.documentVersionId === version.id); return <div key={version.id} className="flex flex-col gap-2 px-3 py-3 sm:flex-row sm:items-center"><div className="grid size-8 shrink-0 place-items-center rounded-lg bg-slate-100 text-xs font-bold text-slate-600">v{version.versionNumber}</div><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><p className="truncate text-sm font-medium">{version.originalFilename}</p>{job && <Badge variant="outline" className={job.status === "COMPLETED" ? "border-violet-200 bg-violet-50 text-violet-700" : job.status === "FAILED" ? "border-red-200 bg-red-50 text-red-700" : "border-amber-200 bg-amber-50 text-amber-700"}>{job.status === "COMPLETED" ? `${job.candidateCount} AI draft` : job.status}</Badge>}</div><p className="mt-0.5 text-xs text-slate-400">{formatBytes(version.sizeBytes)} · SHA-256 {version.sha256.slice(0, 12)}… · {new Date(version.createdAt).toLocaleString("vi-VN")}</p></div>{canExtract && !job && <Button variant="outline" size="sm" disabled={saving} onClick={() => void extract(document.id, version.id)} className="border-violet-200 text-violet-700 hover:bg-violet-50"><Sparkles /> Trích xuất AI</Button>}{canExtract && job?.status === "FAILED" && <Button variant="outline" size="sm" disabled={saving} onClick={() => void extract(document.id, version.id)}><Sparkles /> Thử lại</Button>}<Button variant="ghost" size="sm" onClick={() => void download(document, version.id)}><Download /> Tải xuống</Button></div>; })}</div></div></article>)}</div>}
       <div className="border-t border-slate-100 px-4 py-3 text-xs text-slate-400">{documents.length} tài liệu trong kết quả hiện tại</div>
     </section>
     {uploadTarget && <UploadDialog document={uploadTarget === "new" ? null : uploadTarget} saving={saving} onClose={() => setUploadTarget(null)} onSubmit={upload} />}

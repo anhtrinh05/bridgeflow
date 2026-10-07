@@ -55,6 +55,12 @@ Before sending content to an AI provider, the backend must:
 
 The selected provider must have documented retention and training controls suitable for the deployment. Provider responses remain untrusted drafts until reviewed by a human.
 
+The OpenAI adapter uses the Responses API with Structured Outputs, disables provider
+storage (`store: false`), sends a per-job correlation ID, and reads the API key only
+from the process environment. Project AI processing is disabled by default. The
+backend strips email addresses and configured literal sensitive values before the
+request, applies a character budget, and never stores or logs raw prompts.
+
 ## Logging rules
 
 - Log identifiers and operation results, not full document text.

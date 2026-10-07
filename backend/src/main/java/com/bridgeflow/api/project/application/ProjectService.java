@@ -84,7 +84,8 @@ public class ProjectService {
         if (project.getStatus() == ProjectStatus.ARCHIVED) {
             throw new IllegalStateException("Project đã archive nên không thể chỉnh sửa.");
         }
-        project.updateDetails(request.name(), request.customerName());
+        var aiEnabled = request.aiEnabled() == null ? project.isAiEnabled() : request.aiEnabled();
+        project.updateDetails(request.name(), request.customerName(), aiEnabled);
         projectRepository.saveAndFlush(project);
         auditService.record(projectId, userId, AuditAction.PROJECT_UPDATED, "PROJECT", projectId);
         return toResponse(project, member.getRole());
@@ -108,7 +109,7 @@ public class ProjectService {
     private ProjectResponse toResponse(Project project, ProjectRole role) {
         return new ProjectResponse(
             project.getId(), project.getCode(), project.getName(), project.getCustomerName(),
-            project.getStatus().name(), role.name(),
+            project.getStatus().name(), role.name(), project.isAiEnabled(),
             requirementRepository.countByProjectIdAndStatusNot(project.getId(), RequirementStatus.ARCHIVED),
             project.getCreatedAt(), project.getUpdatedAt()
         );
