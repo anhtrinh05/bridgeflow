@@ -104,6 +104,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/projects/{projectId}/documents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List project documents */
+        get: operations["listDocuments"];
+        put?: never;
+        /** Upload a new document and its first version */
+        post: operations["uploadDocument"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/projects/{projectId}/archive": {
         parameters: {
             query?: never;
@@ -115,6 +133,40 @@ export interface paths {
         put?: never;
         /** Archive a project */
         post: operations["archiveProject"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/documents/{documentId}/versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Upload an immutable document version */
+        post: operations["uploadDocumentVersion"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/documents/{documentId}/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Archive a document */
+        post: operations["archiveDocument"];
         delete?: never;
         options?: never;
         head?: never;
@@ -224,6 +276,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/documents/{documentId}/versions/{versionId}/content": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Download a document version */
+        get: operations["downloadDocumentVersion"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/me": {
         parameters: {
             query?: never;
@@ -317,18 +386,49 @@ export interface components {
         };
         GlossaryTermResponse: {
             /** Format: uuid */
-            id?: string;
+            id: string;
             /** Format: uuid */
-            projectId?: string;
-            japaneseTerm?: string;
-            vietnameseTerm?: string;
-            notes?: string;
+            projectId: string;
+            japaneseTerm: string;
+            vietnameseTerm: string;
+            notes: string | null;
             /** Format: uuid */
-            createdBy?: string;
+            createdBy: string;
             /** Format: date-time */
-            createdAt?: string;
+            createdAt: string;
             /** Format: date-time */
-            updatedAt?: string;
+            updatedAt: string;
+        };
+        DocumentResponse: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            projectId: string;
+            title: string;
+            status: string;
+            latestVersion: components["schemas"]["DocumentVersionResponse"];
+            versions: components["schemas"]["DocumentVersionResponse"][];
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+            /** Format: date-time */
+            archivedAt: string | null;
+        };
+        DocumentVersionResponse: {
+            /** Format: uuid */
+            id: string;
+            /** Format: int32 */
+            versionNumber: number;
+            originalFilename: string;
+            contentType: string;
+            /** Format: int64 */
+            sizeBytes: number;
+            sha256: string;
+            /** Format: uuid */
+            uploadedBy: string;
+            /** Format: date-time */
+            createdAt: string;
         };
         LoginRequest: {
             /** Format: email */
@@ -600,6 +700,60 @@ export interface operations {
             };
         };
     };
+    listDocuments: {
+        parameters: {
+            query?: {
+                includeArchived?: boolean;
+            };
+            header?: never;
+            path: {
+                projectId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["DocumentResponse"][];
+                };
+            };
+        };
+    };
+    uploadDocument: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    title: string;
+                    /** Format: binary */
+                    file: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Document uploaded */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["DocumentResponse"];
+                };
+            };
+        };
+    };
     archiveProject: {
         parameters: {
             query?: never;
@@ -618,6 +772,57 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ProjectResponse"];
+                };
+            };
+        };
+    };
+    uploadDocumentVersion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                documentId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "multipart/form-data": {
+                    /** Format: binary */
+                    file: string;
+                };
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["DocumentResponse"];
+                };
+            };
+        };
+    };
+    archiveDocument: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                documentId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["DocumentResponse"];
                 };
             };
         };
@@ -800,6 +1005,29 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["HealthResponse"];
+                };
+            };
+        };
+    };
+    downloadDocumentVersion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                documentId: string;
+                versionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": string;
                 };
             };
         };

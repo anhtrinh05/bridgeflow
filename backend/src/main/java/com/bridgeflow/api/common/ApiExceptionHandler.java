@@ -1,5 +1,6 @@
 package com.bridgeflow.api.common;
 
+import java.io.UncheckedIOException;
 import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -12,6 +13,7 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 @RestControllerAdvice
 public class ApiExceptionHandler {
@@ -48,6 +50,16 @@ public class ApiExceptionHandler {
     @ExceptionHandler(DataIntegrityViolationException.class)
     ResponseEntity<ApiError> handleConflict(DataIntegrityViolationException exception) {
         return error(HttpStatus.CONFLICT, "RESOURCE_CONFLICT", "Mã dữ liệu đã tồn tại hoặc vi phạm ràng buộc.", Map.of());
+    }
+
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    ResponseEntity<ApiError> handleUploadTooLarge(MaxUploadSizeExceededException exception) {
+        return error(HttpStatus.PAYLOAD_TOO_LARGE, "FILE_TOO_LARGE", "File upload vượt quá giới hạn cho phép.", Map.of());
+    }
+
+    @ExceptionHandler(UncheckedIOException.class)
+    ResponseEntity<ApiError> handleStorageFailure(UncheckedIOException exception) {
+        return error(HttpStatus.INTERNAL_SERVER_ERROR, "STORAGE_ERROR", "Không thể truy cập file tài liệu.", Map.of());
     }
 
     private ResponseEntity<ApiError> error(

@@ -37,6 +37,11 @@ Demo and evaluation environments must use synthetic documents only. Real custome
 - Roles are `ADMIN`, `BRSE`, `DEVELOPER`, and read-only `VIEWER`.
 - Project and requirement create, update, confirm, archive, and revision actions write an
   immutable audit event with the authenticated actor ID.
+- Document storage keys are generated UUID paths and never derived from user filenames.
+- Uploads enforce a 10 MiB limit, an allowlist of PDF/DOCX/text formats, basic content
+  signature checks, SHA-256 hashing, project authorization, and audit events.
+- Original filenames are used only for download presentation; normalized paths remain
+  confined beneath the configured private storage root.
 
 ## AI provider boundary
 

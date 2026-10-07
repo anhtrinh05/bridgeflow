@@ -7,7 +7,11 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Duration;
+import java.util.Comparator;
 import java.util.UUID;
 
 import tools.jackson.databind.JsonNode;
@@ -51,8 +55,13 @@ class RequirementPersistenceIntegrationTest {
         .withUsername("bridgeflow")
         .withPassword("bridgeflow");
 
+    private static final Path DOCUMENT_STORAGE = Path.of(
+        System.getProperty("java.io.tmpdir"), "bridgeflow-test-documents-" + UUID.randomUUID()
+    );
+
     @DynamicPropertySource
     static void databaseProperties(DynamicPropertyRegistry registry) {
+        registry.add("bridgeflow.storage.root", () -> DOCUMENT_STORAGE.toString());
         var externalUrl = System.getenv("BRIDGEFLOW_TEST_DB_URL");
         if (externalUrl != null && !externalUrl.isBlank()) {
             // The external database must be disposable: Flyway migrates it at startup.
@@ -68,9 +77,14 @@ class RequirementPersistenceIntegrationTest {
     }
 
     @AfterAll
-    static void stopContainer() {
+    static void stopContainer() throws Exception {
         if (POSTGRES.isRunning()) {
             POSTGRES.stop();
+        }
+        if (Files.exists(DOCUMENT_STORAGE)) {
+            try (var paths = Files.walk(DOCUMENT_STORAGE)) {
+                for (var path : paths.sorted(Comparator.reverseOrder()).toList()) Files.deleteIfExists(path);
+            }
         }
     }
 
@@ -207,6 +221,8 @@ class RequirementPersistenceIntegrationTest {
             .required("get").required("operationId").asText()).isEqualTo("listRequirements");
         assertThat(contract.required("paths").required("/api/v1/projects/{projectId}/glossary")
             .required("get").required("operationId").asText()).isEqualTo("listGlossaryTerms");
+        assertThat(contract.required("paths").required("/api/v1/projects/{projectId}/documents")
+            .required("post").required("operationId").asText()).isEqualTo("uploadDocument");
         var schemas = contract.required("components").required("schemas");
         assertThat(schemas.has("RequirementResponse")).isTrue();
         assertThat(schemas.required("RequirementResponse").required("required").toString())
@@ -346,6 +362,12 @@ class RequirementPersistenceIntegrationTest {
             {"japaneseTerm":"閲覧者","vietnameseTerm":"Người xem","notes":null}
             """, 403);
         assertThat(glossaryForbidden.required("code").asText()).isEqualTo("ACCESS_DENIED");
+        var documentForbidden = sendMultipart(
+            "/api/v1/projects/" + projectId + "/documents",
+            "Forbidden document", "forbidden.txt", "text/plain",
+            "viewer cannot upload".getBytes(StandardCharsets.UTF_8), 403
+        );
+        assertThat(documentForbidden.required("code").asText()).isEqualTo("ACCESS_DENIED");
     }
 
     @Test
@@ -385,6 +407,61 @@ class RequirementPersistenceIntegrationTest {
             );
     }
 
+    @Test
+    void uploadsVersionsDownloadsAndArchivesAProjectDocument() throws Exception {
+        loginTestUser();
+        var suffix = UUID.randomUUID().toString().substring(0, 8).toUpperCase();
+        var project = sendJson("POST", "/api/v1/projects", """
+            {"code":"DOC-%s","name":"Document integration project","customerName":null}
+            """.formatted(suffix), 201);
+        var projectId = project.required("id").asText();
+
+        var invalidPdf = sendMultipart(
+            "/api/v1/projects/" + projectId + "/documents",
+            "Invalid PDF", "invalid.pdf", "application/pdf",
+            "not a pdf".getBytes(StandardCharsets.UTF_8), 400
+        );
+        assertThat(invalidPdf.required("code").asText()).isEqualTo("INVALID_REQUEST");
+        assertThat(sendJson("GET", "/api/v1/projects/" + projectId + "/documents", null, 200)).isEmpty();
+
+        var firstContent = "第1版: 利用者は注文履歴を確認できる。".getBytes(StandardCharsets.UTF_8);
+        var document = sendMultipart(
+            "/api/v1/projects/" + projectId + "/documents",
+            "注文管理仕様", "requirements-v1.txt", "text/plain", firstContent, 201
+        );
+        var documentId = document.required("id").asText();
+        assertThat(document.required("latestVersion").required("versionNumber").asInt()).isEqualTo(1);
+        assertThat(document.required("latestVersion").required("sha256").asText()).hasSize(64);
+
+        var secondContent = "第2版: 利用者は注文履歴を検索できる。".getBytes(StandardCharsets.UTF_8);
+        document = sendMultipart(
+            "/api/v1/documents/" + documentId + "/versions",
+            null, "requirements-v2.txt", "text/plain", secondContent, 200
+        );
+        var versionId = document.required("latestVersion").required("id").asText();
+        assertThat(document.required("latestVersion").required("versionNumber").asInt()).isEqualTo(2);
+        assertThat(document.required("versions")).hasSize(2);
+
+        var documents = sendJson("GET", "/api/v1/projects/" + projectId + "/documents", null, 200);
+        assertThat(documents).hasSize(1);
+        assertThat(download("/api/v1/documents/" + documentId + "/versions/" + versionId + "/content"))
+            .isEqualTo(secondContent);
+
+        document = sendJson("POST", "/api/v1/documents/" + documentId + "/archive", "{}", 200);
+        assertThat(document.required("status").asText()).isEqualTo("ARCHIVED");
+        assertThat(sendJson("GET", "/api/v1/projects/" + projectId + "/documents", null, 200)).isEmpty();
+        assertThat(sendJson(
+            "GET", "/api/v1/projects/" + projectId + "/documents?includeArchived=true", null, 200
+        )).hasSize(1);
+        assertThat(auditEventRepository.findAllByProjectIdOrderByOccurredAtDesc(UUID.fromString(projectId)))
+            .extracting(event -> event.getAction())
+            .contains(
+                AuditAction.DOCUMENT_UPLOADED,
+                AuditAction.DOCUMENT_VERSION_ADDED,
+                AuditAction.DOCUMENT_ARCHIVED
+            );
+    }
+
     private UUID loginTestUser() throws Exception {
         var password = "integration-password";
         var user = userRepository.save(new AppUser(
@@ -403,6 +480,60 @@ class RequirementPersistenceIntegrationTest {
         accessToken = response.required("accessToken").asText();
         assertThat(accessToken).isNotBlank();
         assertThat(response.required("user").required("email").asText()).isEqualTo(email);
+    }
+
+    private JsonNode sendMultipart(
+        String path,
+        String title,
+        String filename,
+        String contentType,
+        byte[] fileContent,
+        int expectedStatus
+    ) throws Exception {
+        var boundary = "BridgeFlowBoundary" + UUID.randomUUID().toString().replace("-", "");
+        var prefix = new StringBuilder();
+        if (title != null) {
+            prefix.append("--").append(boundary).append("\r\n")
+                .append("Content-Disposition: form-data; name=\"title\"\r\n\r\n")
+                .append(title).append("\r\n");
+        }
+        prefix.append("--").append(boundary).append("\r\n")
+            .append("Content-Disposition: form-data; name=\"file\"; filename=\"")
+            .append(filename).append("\"\r\n")
+            .append("Content-Type: ").append(contentType).append("\r\n\r\n");
+        var prefixBytes = prefix.toString().getBytes(StandardCharsets.UTF_8);
+        var suffixBytes = ("\r\n--" + boundary + "--\r\n").getBytes(StandardCharsets.UTF_8);
+        var body = new byte[prefixBytes.length + fileContent.length + suffixBytes.length];
+        System.arraycopy(prefixBytes, 0, body, 0, prefixBytes.length);
+        System.arraycopy(fileContent, 0, body, prefixBytes.length, fileContent.length);
+        System.arraycopy(suffixBytes, 0, body, prefixBytes.length + fileContent.length, suffixBytes.length);
+
+        var baseUrl = "http://127.0.0.1:" + environment.getRequiredProperty("local.server.port");
+        var request = HttpRequest.newBuilder(URI.create(baseUrl + path))
+            .timeout(Duration.ofSeconds(10))
+            .header("Authorization", "Bearer " + accessToken)
+            .header("Content-Type", "multipart/form-data; boundary=" + boundary)
+            .POST(HttpRequest.BodyPublishers.ofByteArray(body))
+            .build();
+        try (var client = HttpClient.newHttpClient()) {
+            var response = client.send(request, HttpResponse.BodyHandlers.ofString());
+            assertThat(response.statusCode()).as(response.body()).isEqualTo(expectedStatus);
+            return objectMapper.readTree(response.body());
+        }
+    }
+
+    private byte[] download(String path) throws Exception {
+        var baseUrl = "http://127.0.0.1:" + environment.getRequiredProperty("local.server.port");
+        var request = HttpRequest.newBuilder(URI.create(baseUrl + path))
+            .timeout(Duration.ofSeconds(10))
+            .header("Authorization", "Bearer " + accessToken)
+            .GET().build();
+        try (var client = HttpClient.newHttpClient()) {
+            var response = client.send(request, HttpResponse.BodyHandlers.ofByteArray());
+            assertThat(response.statusCode()).isEqualTo(200);
+            assertThat(response.headers().firstValue("Content-Disposition")).isPresent();
+            return response.body();
+        }
     }
 
     private JsonNode sendJson(String method, String path, String body, int expectedStatus) throws Exception {

@@ -1,0 +1,2 @@
+ALTER TABLE document_versions
+    ALTER COLUMN sha256 TYPE VARCHAR(64);

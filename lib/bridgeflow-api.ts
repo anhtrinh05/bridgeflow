@@ -7,6 +7,8 @@ export type Requirement = components["schemas"]["RequirementResponse"];
 export type AuthUser = components["schemas"]["UserResponse"];
 export type LoginResponse = components["schemas"]["LoginResponse"];
 export type GlossaryTerm = components["schemas"]["GlossaryTermResponse"];
+export type ProjectDocument = components["schemas"]["DocumentResponse"];
+export type DocumentVersion = components["schemas"]["DocumentVersionResponse"];
 
 type CreateProjectRequest = components["schemas"]["CreateProjectRequest"];
 type UpdateProjectRequest = components["schemas"]["UpdateProjectRequest"];
@@ -36,10 +38,11 @@ function storeToken(token: string | null) {
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const token = currentToken();
+  const isFormData = typeof FormData !== "undefined" && init?.body instanceof FormData;
   const response = await fetch(`${API_URL}${path}`, {
     ...init,
     headers: {
-      "Content-Type": "application/json",
+      ...(!isFormData ? { "Content-Type": "application/json" } : {}),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...init?.headers,
     },
@@ -51,6 +54,25 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   }
   if (response.status === 204) return undefined as T;
   return response.json() as Promise<T>;
+}
+
+async function requestBlob(path: string) {
+  const token = currentToken();
+  const response = await fetch(`${API_URL}${path}`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  if (!response.ok) {
+    if (response.status === 401) storeToken(null);
+    const body = await response.json().catch(() => null) as { message?: string } | null;
+    throw new Error(body?.message ?? `API trả về lỗi ${response.status}.`);
+  }
+  const disposition = response.headers.get("Content-Disposition") ?? "";
+  const encoded = disposition.match(/filename\*=UTF-8''([^;]+)/i)?.[1];
+  const quoted = disposition.match(/filename="([^"]+)"/i)?.[1];
+  return {
+    blob: await response.blob(),
+    filename: encoded ? decodeURIComponent(encoded) : quoted ?? "document",
+  };
 }
 
 export const bridgeFlowApi = {
@@ -112,4 +134,21 @@ export const bridgeFlowApi = {
     }),
   deleteGlossaryTerm: (projectId: string, termId: string) =>
     request<void>(`/projects/${projectId}/glossary/${termId}`, { method: "DELETE" }),
+  listDocuments: (projectId: string, includeArchived = false) =>
+    request<ProjectDocument[]>(`/projects/${projectId}/documents${includeArchived ? "?includeArchived=true" : ""}`),
+  uploadDocument: (projectId: string, title: string, file: File) => {
+    const body = new FormData();
+    body.append("title", title);
+    body.append("file", file);
+    return request<ProjectDocument>(`/projects/${projectId}/documents`, { method: "POST", body });
+  },
+  uploadDocumentVersion: (documentId: string, file: File) => {
+    const body = new FormData();
+    body.append("file", file);
+    return request<ProjectDocument>(`/documents/${documentId}/versions`, { method: "POST", body });
+  },
+  archiveDocument: (documentId: string) =>
+    request<ProjectDocument>(`/documents/${documentId}/archive`, { method: "POST", body: "{}" }),
+  downloadDocumentVersion: (documentId: string, versionId: string) =>
+    requestBlob(`/documents/${documentId}/versions/${versionId}/content`),
 };

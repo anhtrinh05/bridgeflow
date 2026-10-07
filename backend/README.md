@@ -27,6 +27,8 @@ Environment variables can override the development defaults:
 | `DB_PASSWORD` | `bridgeflow` |
 | `SERVER_PORT` | `8080` |
 | `BRIDGEFLOW_DEMO_PASSWORD` | `bridgeflow-demo` |
+| `BRIDGEFLOW_STORAGE_ROOT` | OS temp directory under `bridgeflow-uploads` |
+| `BRIDGEFLOW_STORAGE_MAX_BYTES` | `10485760` (10 MiB) |
 
 The password above is only for the local Docker database. Use a secret manager in
 deployed environments.
@@ -52,6 +54,10 @@ Except for login, health checks, and API documentation, endpoints require an
 | `POST` | `/api/v1/projects/{projectId}/archive` | Archive a project |
 | `GET` / `POST` | `/api/v1/projects/{projectId}/glossary` | Search or create glossary terms |
 | `PATCH` / `DELETE` | `/api/v1/projects/{projectId}/glossary/{termId}` | Update or delete a glossary term |
+| `GET` / `POST` | `/api/v1/projects/{projectId}/documents` | List or upload project documents |
+| `POST` | `/api/v1/documents/{documentId}/versions` | Upload an immutable new version |
+| `GET` | `/api/v1/documents/{documentId}/versions/{versionId}/content` | Download an authorized version |
+| `POST` | `/api/v1/documents/{documentId}/archive` | Archive a document |
 | `GET` / `POST` | `/api/v1/projects/{projectId}/requirements` | Search/page or create requirements |
 | `GET` | `/api/v1/requirements/{requirementId}` | Read a requirement and its revision history |
 | `POST` | `/api/v1/requirements/{requirementId}/revisions` | Add a bilingual revision |
@@ -68,6 +74,13 @@ Project roles are enforced by the API: `ADMIN` manages the project,
 read-only access. `ADMIN` and `BRSE` manage glossary terms; every project,
 requirement, and glossary mutation creates an audit event tied to the
 authenticated user.
+
+Document bytes are stored outside PostgreSQL beneath `BRIDGEFLOW_STORAGE_ROOT`;
+the database stores version metadata, an opaque storage key, and SHA-256. Uploads
+are limited to 10 MiB and PDF, DOCX, TXT, or Markdown. `ADMIN`, `BRSE`, and
+`DEVELOPER` can upload versions; only `ADMIN` and `BRSE` can archive documents.
+Production deployments should point the storage adapter at a durable private
+volume and add malware scanning before ingestion.
 
 Interactive documentation is available at `/swagger-ui.html`, and the machine-readable
 OpenAPI contract used by the frontend generator is available at `/v3/api-docs`.

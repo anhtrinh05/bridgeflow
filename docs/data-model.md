@@ -90,3 +90,12 @@ its preferred Vietnamese equivalent, optional usage notes, the creating user,
 and timestamps. Japanese terms are unique within a project. All members can
 search the glossary; only `ADMIN` and `BRSE` members can create, update, or
 delete terms. Mutations are recorded in the project audit trail.
+
+## Documents and versions
+
+`Document` is the stable project-scoped identity and lifecycle record.
+`DocumentVersion` is immutable and stores the version number, original filename,
+media type, byte size, SHA-256 checksum, opaque storage key, uploader, and upload
+time. File bytes stay outside PostgreSQL. A new upload appends a version instead
+of replacing prior content, and archiving the document retains its complete
+history for traceability.

@@ -3,6 +3,7 @@ package com.bridgeflow.api.glossary.api;
 import java.time.Instant;
 import java.util.UUID;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
@@ -19,14 +20,14 @@ public final class GlossaryModels {
     }
 
     public record GlossaryTermResponse(
-        UUID id,
-        UUID projectId,
-        String japaneseTerm,
-        String vietnameseTerm,
-        String notes,
-        UUID createdBy,
-        Instant createdAt,
-        Instant updatedAt
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) UUID id,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) UUID projectId,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String japaneseTerm,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String vietnameseTerm,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true) String notes,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) UUID createdBy,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) Instant createdAt,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) Instant updatedAt
     ) {
     }
 }
