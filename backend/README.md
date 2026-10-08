@@ -137,12 +137,19 @@ provider is `disabled`; automated tests use the deterministic `stub` provider.
 | `POST` | `/api/v1/requirements/{requirementId}/revisions/{revisionId}/test-cases/{testCaseId}/review` | Approve or reject a test case |
 | `GET` | `/api/v1/requirements/{requirementId}/traceability` | Trace every revision to its source and review artifacts |
 | `GET` | `/api/v1/requirements/{requirementId}/revisions/{revisionId}/change-impact` | Compare with the prior revision and list artifacts to revalidate |
+| `GET` / `POST` | `/api/v1/requirements/{requirementId}/relations` | List or create requirement relations |
+| `DELETE` | `/api/v1/requirements/{requirementId}/relations/{relationId}` | Remove a requirement relation |
 
 Change-impact reports are deterministic and read-only. They compare the selected
 revision with its immediate predecessor and surface non-rejected questions,
 criteria, and test cases from that predecessor when bilingual content changes.
 No provider call or hidden confidence score is used; every recommendation links
 to persisted evidence that a reviewer can inspect.
+
+`ADMIN` and `BRSE` users can create or delete `DEPENDS_ON`, `SUPERSEDES`,
+`SPLIT_INTO`, `MERGED_INTO`, and `DUPLICATES` relations. Both endpoints of an
+edge must be distinct, active requirements in the same project. Duplicate typed
+edges are rejected, while every mutation is written to the audit trail.
 
 The default profile only loads production-safe schema migrations from
 `db/migration`. The `dev` profile additionally loads synthetic

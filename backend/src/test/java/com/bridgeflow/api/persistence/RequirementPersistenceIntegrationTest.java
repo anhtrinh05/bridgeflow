@@ -236,6 +236,9 @@ class RequirementPersistenceIntegrationTest {
         assertThat(contract.required("paths")
             .required("/api/v1/requirements/{requirementId}/revisions/{revisionId}/change-impact")
             .required("get").required("operationId").asText()).isEqualTo("getRequirementChangeImpact");
+        assertThat(contract.required("paths")
+            .required("/api/v1/requirements/{requirementId}/relations")
+            .required("post").required("operationId").asText()).isEqualTo("createRequirementRelation");
         var schemas = contract.required("components").required("schemas");
         assertThat(schemas.has("RequirementResponse")).isTrue();
         assertThat(schemas.has("RequirementAnalysisResponse")).isTrue();
@@ -741,6 +744,67 @@ class RequirementPersistenceIntegrationTest {
         assertThat(impact.required("affectedArtifacts")).hasSize(5);
         assertThat(impact.required("affectedArtifacts").toString())
             .contains("REVALIDATE", "TEST_CASE", testCaseId);
+    }
+
+    @Test
+    void managesAuditedProjectScopedRequirementRelations() throws Exception {
+        loginTestUser();
+        var suffix = UUID.randomUUID().toString().substring(0, 8).toUpperCase();
+        var project = sendJson("POST", "/api/v1/projects", """
+            {"code":"REL-%s","name":"Relations project","customerName":null}
+            """.formatted(suffix), 201);
+        var projectId = project.required("id").asText();
+        var first = sendJson("POST", "/api/v1/projects/" + projectId + "/requirements", """
+            {"displayKey":"REQ-REL-A","japaneseText":"注文を登録する。","vietnameseText":"Tạo đơn hàng."}
+            """, 201);
+        var second = sendJson("POST", "/api/v1/projects/" + projectId + "/requirements", """
+            {"displayKey":"REQ-REL-B","japaneseText":"注文履歴を表示する。","vietnameseText":"Hiển thị lịch sử đơn hàng."}
+            """, 201);
+        var firstId = first.required("id").asText();
+        var secondId = second.required("id").asText();
+
+        var relation = sendJson("POST", "/api/v1/requirements/" + firstId + "/relations", """
+            {"targetRequirementId":"%s","relationType":"DEPENDS_ON"}
+            """.formatted(secondId), 201);
+        var relationId = relation.required("id").asText();
+        assertThat(relation.required("sourceRequirementId").asText()).isEqualTo(firstId);
+        assertThat(relation.required("targetRequirementId").asText()).isEqualTo(secondId);
+        assertThat(relation.required("relationType").asText()).isEqualTo("DEPENDS_ON");
+
+        var duplicate = sendJson("POST", "/api/v1/requirements/" + firstId + "/relations", """
+            {"targetRequirementId":"%s","relationType":"DEPENDS_ON"}
+            """.formatted(secondId), 400);
+        assertThat(duplicate.required("message").asText()).contains("đã tồn tại");
+        var self = sendJson("POST", "/api/v1/requirements/" + firstId + "/relations", """
+            {"targetRequirementId":"%s","relationType":"DUPLICATES"}
+            """.formatted(firstId), 400);
+        assertThat(self.required("message").asText()).contains("chính nó");
+
+        var otherProject = sendJson("POST", "/api/v1/projects", """
+            {"code":"REL-OTHER-%s","name":"Other project","customerName":null}
+            """.formatted(suffix), 201);
+        var other = sendJson("POST", "/api/v1/projects/" + otherProject.required("id").asText() + "/requirements", """
+            {"displayKey":"REQ-OTHER","japaneseText":"別プロジェクト。","vietnameseText":"Project khác."}
+            """, 201);
+        var crossProject = sendJson("POST", "/api/v1/requirements/" + firstId + "/relations", """
+            {"targetRequirementId":"%s","relationType":"SUPERSEDES"}
+            """.formatted(other.required("id").asText()), 400);
+        assertThat(crossProject.required("message").asText()).contains("cùng một project");
+
+        assertThat(sendJson("GET", "/api/v1/requirements/" + firstId + "/relations", null, 200)).hasSize(1);
+        assertThat(sendJson("GET", "/api/v1/requirements/" + secondId + "/relations", null, 200)).hasSize(1);
+        var sourceTrace = sendJson("GET", "/api/v1/requirements/" + firstId + "/traceability", null, 200);
+        assertThat(sourceTrace.required("relations").get(0).required("direction").asText()).isEqualTo("OUTGOING");
+        assertThat(sourceTrace.required("relations").get(0).required("relatedDisplayKey").asText())
+            .isEqualTo("REQ-REL-B");
+        var targetTrace = sendJson("GET", "/api/v1/requirements/" + secondId + "/traceability", null, 200);
+        assertThat(targetTrace.required("relations").get(0).required("direction").asText()).isEqualTo("INCOMING");
+
+        sendJson("DELETE", "/api/v1/requirements/" + firstId + "/relations/" + relationId, "{}", 204);
+        assertThat(sendJson("GET", "/api/v1/requirements/" + firstId + "/relations", null, 200)).hasSize(0);
+        assertThat(auditEventRepository.findAllByProjectIdOrderByOccurredAtDesc(UUID.fromString(projectId)))
+            .extracting(event -> event.getAction())
+            .contains(AuditAction.REQUIREMENT_RELATION_CREATED, AuditAction.REQUIREMENT_RELATION_DELETED);
     }
 
     private String analysisPath(String requirementId, String revisionId) {

@@ -12,7 +12,8 @@ public final class TraceabilityModels {
         UUID requirementId,
         String displayKey,
         @Schema(nullable = true) UUID currentRevisionId,
-        List<RevisionTraceResponse> revisions
+        List<RevisionTraceResponse> revisions,
+        List<RelationTraceResponse> relations
     ) { }
 
     public record RevisionTraceResponse(
@@ -50,5 +51,13 @@ public final class TraceabilityModels {
         String status,
         UUID sourceRevisionId,
         String recommendedAction
+    ) { }
+
+    public record RelationTraceResponse(
+        UUID relationId,
+        String direction,
+        String relationType,
+        UUID relatedRequirementId,
+        String relatedDisplayKey
     ) { }
 }

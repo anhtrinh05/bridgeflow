@@ -65,6 +65,12 @@ relation_type        split_into, merged_into, supersedes, duplicates
 created_at
 ```
 
+The implemented relation types are `DEPENDS_ON`, `SUPERSEDES`, `SPLIT_INTO`,
+`MERGED_INTO`, and `DUPLICATES`. Source and target must be distinct requirements
+in the same project. A unique constraint prevents duplicate typed edges; the API
+returns each edge as incoming or outgoing from the requirement being inspected.
+Only `ADMIN` and `BRSE` members mutate relations, and creation/deletion is audited.
+
 ## Version matching workflow
 
 1. Extract candidate requirements from the new document version.

@@ -96,6 +96,25 @@ export type RequirementTraceability = {
   displayKey: string;
   currentRevisionId: string | null;
   revisions: RevisionTrace[];
+  relations: RelationTrace[];
+};
+export type RequirementRelationType = "DEPENDS_ON" | "SUPERSEDES" | "SPLIT_INTO" | "MERGED_INTO" | "DUPLICATES";
+export type RelationTrace = {
+  relationId: string;
+  direction: "OUTGOING" | "INCOMING";
+  relationType: RequirementRelationType;
+  relatedRequirementId: string;
+  relatedDisplayKey: string;
+};
+export type RequirementRelation = {
+  id: string;
+  sourceRequirementId: string;
+  sourceDisplayKey: string;
+  targetRequirementId: string;
+  targetDisplayKey: string;
+  relationType: RequirementRelationType;
+  createdBy: string;
+  createdAt: string;
 };
 export type AffectedArtifact = {
   id: string;
@@ -315,4 +334,13 @@ export const bridgeFlowApi = {
     request<RequirementTraceability>(`/requirements/${requirementId}/traceability`),
   getRequirementChangeImpact: (requirementId: string, revisionId: string) =>
     request<ChangeImpact>(`/requirements/${requirementId}/revisions/${revisionId}/change-impact`),
+  listRequirementRelations: (requirementId: string) =>
+    request<RequirementRelation[]>(`/requirements/${requirementId}/relations`),
+  createRequirementRelation: (
+    requirementId: string, targetRequirementId: string, relationType: RequirementRelationType,
+  ) => request<RequirementRelation>(`/requirements/${requirementId}/relations`, {
+    method: "POST", body: JSON.stringify({ targetRequirementId, relationType }),
+  }),
+  deleteRequirementRelation: (requirementId: string, relationId: string) =>
+    request<void>(`/requirements/${requirementId}/relations/${relationId}`, { method: "DELETE" }),
 };

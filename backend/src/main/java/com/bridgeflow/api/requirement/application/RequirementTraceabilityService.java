@@ -4,6 +4,7 @@ import static com.bridgeflow.api.requirement.api.TraceabilityModels.AffectedArti
 import static com.bridgeflow.api.requirement.api.TraceabilityModels.ArtifactTraceResponse;
 import static com.bridgeflow.api.requirement.api.TraceabilityModels.ChangeImpactResponse;
 import static com.bridgeflow.api.requirement.api.TraceabilityModels.RequirementTraceabilityResponse;
+import static com.bridgeflow.api.requirement.api.TraceabilityModels.RelationTraceResponse;
 import static com.bridgeflow.api.requirement.api.TraceabilityModels.RevisionTraceResponse;
 
 import java.util.ArrayList;
@@ -23,6 +24,7 @@ import com.bridgeflow.api.requirement.domain.ChangeType;
 import com.bridgeflow.api.requirement.domain.Requirement;
 import com.bridgeflow.api.requirement.domain.RequirementRevision;
 import com.bridgeflow.api.requirement.persistence.RequirementRepository;
+import com.bridgeflow.api.requirement.persistence.RequirementRelationRepository;
 import com.bridgeflow.api.requirement.persistence.RequirementRevisionRepository;
 import com.bridgeflow.api.testcase.persistence.VerificationTestCaseRepository;
 
@@ -34,6 +36,7 @@ public class RequirementTraceabilityService {
     private final ClarificationQuestionRepository questionRepository;
     private final AcceptanceCriterionRepository criterionRepository;
     private final VerificationTestCaseRepository testCaseRepository;
+    private final RequirementRelationRepository relationRepository;
     private final ProjectAccessService accessService;
 
     public RequirementTraceabilityService(
@@ -42,6 +45,7 @@ public class RequirementTraceabilityService {
         ClarificationQuestionRepository questionRepository,
         AcceptanceCriterionRepository criterionRepository,
         VerificationTestCaseRepository testCaseRepository,
+        RequirementRelationRepository relationRepository,
         ProjectAccessService accessService
     ) {
         this.requirementRepository = requirementRepository;
@@ -49,6 +53,7 @@ public class RequirementTraceabilityService {
         this.questionRepository = questionRepository;
         this.criterionRepository = criterionRepository;
         this.testCaseRepository = testCaseRepository;
+        this.relationRepository = relationRepository;
         this.accessService = accessService;
     }
 
@@ -58,7 +63,15 @@ public class RequirementTraceabilityService {
         var revisions = revisionRepository.findByRequirementIdOrderByRevisionNumberAsc(requirementId);
         return new RequirementTraceabilityResponse(
             requirementId, requirement.getDisplayKey(), requirement.getCurrentRevisionId(),
-            revisions.stream().map(this::toRevisionTrace).toList()
+            revisions.stream().map(this::toRevisionTrace).toList(),
+            relationRepository.findAllForRequirement(requirementId).stream().map(relation -> {
+                var outgoing = relation.getSourceRequirement().getId().equals(requirementId);
+                var related = outgoing ? relation.getTargetRequirement() : relation.getSourceRequirement();
+                return new RelationTraceResponse(
+                    relation.getId(), outgoing ? "OUTGOING" : "INCOMING", relation.getRelationType().name(),
+                    related.getId(), related.getDisplayKey()
+                );
+            }).toList()
         );
     }
 
