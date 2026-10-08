@@ -18,6 +18,8 @@ AI-assisted requirements workspace for Japanese–Vietnamese software teams.
 - Human answers and per-artifact approve/reject audit trail
 - Idempotent bilingual test-case drafts generated only from approved acceptance criteria
 - Test-case provenance, priority, and human approve/reject audit trail
+- Revision-level traceability across source documents, Q&A, criteria, and test cases
+- Deterministic change-impact reports with explicit artifact revalidation actions
 - Synthetic Japanese–Vietnamese demo workspace (no customer data)
 - Responsive frontend with loading, error, and empty states
 
@@ -95,5 +97,5 @@ See [backend/README.md](backend/README.md) for details and optional tool paths.
 1. Japanese document ingestion and requirement extraction (implemented)
 2. Q&A and acceptance-criteria generation with human review (implemented)
 3. Test-case generation from approved criteria (implemented)
-4. Requirement traceability and change-impact analysis
-5. Production observability and operational hardening
+4. Requirement traceability and rule-based change-impact analysis (implemented)
+5. Cross-requirement relations and production operational hardening

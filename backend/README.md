@@ -135,6 +135,14 @@ provider is `disabled`; automated tests use the deterministic `stub` provider.
 | `GET` | `/api/v1/requirements/{requirementId}/revisions/{revisionId}/test-cases` | Read generated test-case drafts and provenance |
 | `POST` | `/api/v1/requirements/{requirementId}/revisions/{revisionId}/test-cases/ai-generation` | Generate drafts from approved criteria once per revision |
 | `POST` | `/api/v1/requirements/{requirementId}/revisions/{revisionId}/test-cases/{testCaseId}/review` | Approve or reject a test case |
+| `GET` | `/api/v1/requirements/{requirementId}/traceability` | Trace every revision to its source and review artifacts |
+| `GET` | `/api/v1/requirements/{requirementId}/revisions/{revisionId}/change-impact` | Compare with the prior revision and list artifacts to revalidate |
+
+Change-impact reports are deterministic and read-only. They compare the selected
+revision with its immediate predecessor and surface non-rejected questions,
+criteria, and test cases from that predecessor when bilingual content changes.
+No provider call or hidden confidence score is used; every recommendation links
+to persisted evidence that a reviewer can inspect.
 
 The default profile only loads production-safe schema migrations from
 `db/migration`. The `dev` profile additionally loads synthetic

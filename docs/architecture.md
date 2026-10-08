@@ -52,6 +52,8 @@ Spring Boot API
 5. A BrSE reviews translations, ambiguities, and proposed questions.
 6. Confirmed revisions can be linked to Q&A, acceptance criteria, and test cases.
 7. A later document version creates new revisions rather than overwriting history.
+8. Traceability views resolve every artifact back to its immutable revision and source.
+9. A deterministic impact report identifies prior artifacts that need revalidation after a change.
 
 The AI increments execute bounded extraction and per-revision analysis synchronously while persisting
 the job lifecycle (`PENDING`, `RUNNING`, `COMPLETED`, or `FAILED`). This keeps the
@@ -72,6 +74,7 @@ its source criterion ID and remains a draft until an authorized human reviews it
 - Human review and confirmation
 - Clarification questions and acceptance criteria
 - Test-case generation from approved acceptance criteria
+- Revision traceability and explainable change-impact reports
 - Basic exports and audit history
 
 ## Deferred scope

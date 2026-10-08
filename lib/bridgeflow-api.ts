@@ -76,6 +76,45 @@ export type TestCaseWorkspace = {
   job: AnalysisAiJob | null;
   testCases: VerificationTestCase[];
 };
+export type ArtifactTrace = {
+  id: string;
+  type: "CLARIFICATION_QUESTION" | "ACCEPTANCE_CRITERION" | "TEST_CASE";
+  status: ArtifactReviewStatus;
+  sourceArtifactId: string | null;
+};
+export type RevisionTrace = {
+  revisionId: string;
+  revisionNumber: number;
+  changeType: string;
+  reviewStatus: string;
+  documentVersionId: string | null;
+  sourceAnchor: string | null;
+  artifacts: ArtifactTrace[];
+};
+export type RequirementTraceability = {
+  requirementId: string;
+  displayKey: string;
+  currentRevisionId: string | null;
+  revisions: RevisionTrace[];
+};
+export type AffectedArtifact = {
+  id: string;
+  type: ArtifactTrace["type"];
+  status: ArtifactReviewStatus;
+  sourceRevisionId: string;
+  recommendedAction: "REVIEW" | "REVALIDATE" | "REVALIDATE_ANSWER";
+};
+export type ChangeImpact = {
+  requirementId: string;
+  targetRevisionId: string;
+  baselineRevisionId: string | null;
+  impactLevel: "LOW" | "MEDIUM" | "HIGH";
+  japaneseChanged: boolean;
+  vietnameseChanged: boolean;
+  requiresArtifactRegeneration: boolean;
+  reasons: string[];
+  affectedArtifacts: AffectedArtifact[];
+};
 
 type CreateProjectRequest = components["schemas"]["CreateProjectRequest"];
 type UpdateProjectRequest = components["schemas"]["UpdateProjectRequest"];
@@ -272,4 +311,8 @@ export const bridgeFlowApi = {
     `/requirements/${requirementId}/revisions/${revisionId}/test-cases/${testCaseId}/review`,
     { method: "POST", body: JSON.stringify({ decision }) },
   ),
+  getRequirementTraceability: (requirementId: string) =>
+    request<RequirementTraceability>(`/requirements/${requirementId}/traceability`),
+  getRequirementChangeImpact: (requirementId: string, revisionId: string) =>
+    request<ChangeImpact>(`/requirements/${requirementId}/revisions/${revisionId}/change-impact`),
 };

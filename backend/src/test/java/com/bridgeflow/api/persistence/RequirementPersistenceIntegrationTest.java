@@ -233,6 +233,9 @@ class RequirementPersistenceIntegrationTest {
         assertThat(contract.required("paths")
             .required("/api/v1/requirements/{requirementId}/revisions/{revisionId}/test-cases/ai-generation")
             .required("post").required("operationId").asText()).isEqualTo("generateRevisionTestCases");
+        assertThat(contract.required("paths")
+            .required("/api/v1/requirements/{requirementId}/revisions/{revisionId}/change-impact")
+            .required("get").required("operationId").asText()).isEqualTo("getRequirementChangeImpact");
         var schemas = contract.required("components").required("schemas");
         assertThat(schemas.has("RequirementResponse")).isTrue();
         assertThat(schemas.has("RequirementAnalysisResponse")).isTrue();
@@ -682,6 +685,62 @@ class RequirementPersistenceIntegrationTest {
                 AuditAction.AI_TEST_CASE_GENERATION_COMPLETED,
                 AuditAction.TEST_CASE_REVIEWED
             );
+    }
+
+    @Test
+    void tracesArtifactsAndReportsRevisionChangeImpact() throws Exception {
+        loginTestUser();
+        var suffix = UUID.randomUUID().toString().substring(0, 8).toUpperCase();
+        var project = sendJson("POST", "/api/v1/projects", """
+            {"code":"TRACE-%s","name":"Traceability project","customerName":null}
+            """.formatted(suffix), 201);
+        var projectId = project.required("id").asText();
+        sendJson("PATCH", "/api/v1/projects/" + projectId, """
+            {"name":"Traceability project","customerName":null,"aiEnabled":true}
+            """, 200);
+        var requirement = sendJson("POST", "/api/v1/projects/" + projectId + "/requirements", """
+            {"displayKey":"REQ-TRACE","japaneseText":"利用者は注文履歴を確認できる。","vietnameseText":"Người dùng có thể xem lịch sử đơn hàng."}
+            """, 201);
+        var requirementId = requirement.required("id").asText();
+        var firstRevisionId = requirement.required("latestRevision").required("id").asText();
+        var firstBase = analysisPath(requirementId, firstRevisionId);
+
+        var analysis = sendJson("POST", firstBase + "/ai-analysis", "{}", 200);
+        var criterionId = analysis.required("acceptanceCriteria").get(0).required("id").asText();
+        sendJson("POST", firstBase + "/acceptance-criteria/" + criterionId + "/review",
+            "{\"decision\":\"APPROVED\"}", 200);
+        var testCases = sendJson("POST", firstBase + "/test-cases/ai-generation", "{}", 200);
+        var testCaseId = testCases.required("testCases").get(0).required("id").asText();
+        sendJson("POST", firstBase + "/test-cases/" + testCaseId + "/review",
+            "{\"decision\":\"APPROVED\"}", 200);
+
+        var revised = sendJson("POST", "/api/v1/requirements/" + requirementId + "/revisions", """
+            {"japaneseText":"利用者は期間を指定して注文履歴を確認できる。","vietnameseText":"Người dùng có thể chọn khoảng thời gian để xem lịch sử đơn hàng.","changeType":"MODIFIED"}
+            """, 200);
+        var secondRevisionId = revised.required("latestRevision").required("id").asText();
+
+        var traceability = sendJson("GET", "/api/v1/requirements/" + requirementId + "/traceability", null, 200);
+        assertThat(traceability.required("revisions")).hasSize(2);
+        assertThat(traceability.required("revisions").get(0).required("revisionId").asText())
+            .isEqualTo(firstRevisionId);
+        assertThat(traceability.required("revisions").get(0).required("artifacts")).hasSize(5);
+        assertThat(traceability.required("revisions").get(0).required("artifacts").toString())
+            .contains("CLARIFICATION_QUESTION", "ACCEPTANCE_CRITERION", "TEST_CASE", criterionId);
+        assertThat(traceability.required("revisions").get(1).required("artifacts")).hasSize(0);
+
+        var firstImpact = sendJson("GET", firstBase + "/change-impact", null, 200);
+        assertThat(firstImpact.required("impactLevel").asText()).isEqualTo("LOW");
+        assertThat(firstImpact.required("baselineRevisionId").isNull()).isTrue();
+
+        var impact = sendJson("GET", analysisPath(requirementId, secondRevisionId) + "/change-impact", null, 200);
+        assertThat(impact.required("baselineRevisionId").asText()).isEqualTo(firstRevisionId);
+        assertThat(impact.required("impactLevel").asText()).isEqualTo("HIGH");
+        assertThat(impact.required("japaneseChanged").asBoolean()).isTrue();
+        assertThat(impact.required("vietnameseChanged").asBoolean()).isTrue();
+        assertThat(impact.required("requiresArtifactRegeneration").asBoolean()).isTrue();
+        assertThat(impact.required("affectedArtifacts")).hasSize(5);
+        assertThat(impact.required("affectedArtifacts").toString())
+            .contains("REVALIDATE", "TEST_CASE", testCaseId);
     }
 
     private String analysisPath(String requirementId, String revisionId) {

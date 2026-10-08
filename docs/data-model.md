@@ -79,6 +79,14 @@ The AI must never silently replace a confirmed revision.
 
 Q&A items, acceptance criteria, and test cases should link to a specific requirement revision when their meaning depends on that version. Product-level views may additionally resolve the current revision through the stable requirement ID.
 
+The traceability API builds this graph directly from persisted foreign keys. A
+change-impact report compares a selected revision with its immediate predecessor.
+When Japanese or Vietnamese content changes, non-rejected artifacts from the
+predecessor are returned with explicit `REVIEW`, `REVALIDATE`, or
+`REVALIDATE_ANSWER` actions. Structural `DELETED`, `SPLIT`, and `MERGED` changes
+are high impact. The report is computed, read-only, and does not mutate historical
+approval state.
+
 ## MVP simplification
 
 The MVP uses PostgreSQL UUIDs and relational indexes. Vector matching is deferred. Initial matching can combine normalized text hashes, document section keys, and AI-proposed mappings that require human approval.

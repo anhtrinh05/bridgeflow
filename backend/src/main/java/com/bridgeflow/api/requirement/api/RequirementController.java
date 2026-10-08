@@ -19,6 +19,9 @@ import com.bridgeflow.api.requirement.api.RequirementModels.CreateRevisionReques
 import com.bridgeflow.api.requirement.api.RequirementModels.RequirementResponse;
 import com.bridgeflow.api.requirement.api.RequirementModels.RequirementPageResponse;
 import com.bridgeflow.api.requirement.application.RequirementService;
+import com.bridgeflow.api.requirement.application.RequirementTraceabilityService;
+import com.bridgeflow.api.requirement.api.TraceabilityModels.ChangeImpactResponse;
+import com.bridgeflow.api.requirement.api.TraceabilityModels.RequirementTraceabilityResponse;
 import com.bridgeflow.api.requirement.domain.RequirementStatus;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -36,9 +39,14 @@ import jakarta.validation.Valid;
 public class RequirementController {
 
     private final RequirementService requirementService;
+    private final RequirementTraceabilityService traceabilityService;
 
-    public RequirementController(RequirementService requirementService) {
+    public RequirementController(
+        RequirementService requirementService,
+        RequirementTraceabilityService traceabilityService
+    ) {
         this.requirementService = requirementService;
+        this.traceabilityService = traceabilityService;
     }
 
     @GetMapping("/projects/{projectId}/requirements")
@@ -83,6 +91,25 @@ public class RequirementController {
         @PathVariable UUID requirementId
     ) {
         return requirementService.get(user.id(), requirementId);
+    }
+
+    @GetMapping("/requirements/{requirementId}/traceability")
+    @Operation(operationId = "getRequirementTraceability", summary = "Trace a requirement across revisions and artifacts")
+    public RequirementTraceabilityResponse traceability(
+        @AuthenticationPrincipal CurrentUser user,
+        @PathVariable UUID requirementId
+    ) {
+        return traceabilityService.getTraceability(user.id(), requirementId);
+    }
+
+    @GetMapping("/requirements/{requirementId}/revisions/{revisionId}/change-impact")
+    @Operation(operationId = "getRequirementChangeImpact", summary = "Compare a revision and list artifacts to revalidate")
+    public ChangeImpactResponse changeImpact(
+        @AuthenticationPrincipal CurrentUser user,
+        @PathVariable UUID requirementId,
+        @PathVariable UUID revisionId
+    ) {
+        return traceabilityService.getChangeImpact(user.id(), requirementId, revisionId);
     }
 
     @PostMapping("/requirements/{requirementId}/revisions")
