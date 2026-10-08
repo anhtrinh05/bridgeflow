@@ -16,6 +16,7 @@ export type AnalysisAiJob = AiJob & {
   requirementRevisionId: string | null;
   clarificationQuestionIds: string[];
   acceptanceCriterionIds: string[];
+  testCaseIds: string[];
 };
 export type ClarificationQuestion = {
   id: string;
@@ -50,6 +51,30 @@ export type RequirementAnalysis = {
   job: AnalysisAiJob | null;
   questions: ClarificationQuestion[];
   acceptanceCriteria: AcceptanceCriterion[];
+};
+export type VerificationTestCase = {
+  id: string;
+  requirementRevisionId: string;
+  acceptanceCriterionId: string;
+  aiJobId: string;
+  titleJapanese: string;
+  titleVietnamese: string;
+  preconditionsJapanese: string;
+  preconditionsVietnamese: string;
+  stepsJapanese: string;
+  stepsVietnamese: string;
+  expectedResultJapanese: string;
+  expectedResultVietnamese: string;
+  priority: "HIGH" | "MEDIUM" | "LOW";
+  status: ArtifactReviewStatus;
+  createdBy: string;
+  createdAt: string;
+  reviewedBy: string | null;
+  reviewedAt: string | null;
+};
+export type TestCaseWorkspace = {
+  job: AnalysisAiJob | null;
+  testCases: VerificationTestCase[];
 };
 
 type CreateProjectRequest = components["schemas"]["CreateProjectRequest"];
@@ -230,6 +255,21 @@ export const bridgeFlowApi = {
     decision: Exclude<ArtifactReviewStatus, "DRAFT">,
   ) => request<AcceptanceCriterion>(
     `/requirements/${requirementId}/revisions/${revisionId}/acceptance-criteria/${criterionId}/review`,
+    { method: "POST", body: JSON.stringify({ decision }) },
+  ),
+  getTestCases: (requirementId: string, revisionId: string) =>
+    request<TestCaseWorkspace>(`/requirements/${requirementId}/revisions/${revisionId}/test-cases`),
+  generateTestCases: (requirementId: string, revisionId: string) =>
+    request<TestCaseWorkspace>(`/requirements/${requirementId}/revisions/${revisionId}/test-cases/ai-generation`, {
+      method: "POST", body: "{}",
+    }),
+  reviewTestCase: (
+    requirementId: string,
+    revisionId: string,
+    testCaseId: string,
+    decision: Exclude<ArtifactReviewStatus, "DRAFT">,
+  ) => request<VerificationTestCase>(
+    `/requirements/${requirementId}/revisions/${revisionId}/test-cases/${testCaseId}/review`,
     { method: "POST", body: JSON.stringify({ decision }) },
   ),
 };

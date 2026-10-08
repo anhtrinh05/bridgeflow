@@ -16,6 +16,8 @@ AI-assisted requirements workspace for Japanese–Vietnamese software teams.
 - BrSE review/confirmation workflow and revision history
 - Idempotent AI-generated bilingual clarification questions and acceptance criteria
 - Human answers and per-artifact approve/reject audit trail
+- Idempotent bilingual test-case drafts generated only from approved acceptance criteria
+- Test-case provenance, priority, and human approve/reject audit trail
 - Synthetic Japanese–Vietnamese demo workspace (no customer data)
 - Responsive frontend with loading, error, and empty states
 
@@ -92,5 +94,6 @@ See [backend/README.md](backend/README.md) for details and optional tool paths.
 
 1. Japanese document ingestion and requirement extraction (implemented)
 2. Q&A and acceptance-criteria generation with human review (implemented)
-3. Test-case generation, requirement traceability, and change-impact analysis
-4. Production observability and operational hardening
+3. Test-case generation from approved criteria (implemented)
+4. Requirement traceability and change-impact analysis
+5. Production observability and operational hardening

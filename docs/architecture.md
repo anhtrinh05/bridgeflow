@@ -59,7 +59,9 @@ MVP operationally simple and makes a later move to a background runner possible
 without changing the API or losing auditability. Each job targets exactly one
 immutable document version or one requirement revision. Revision analysis creates
 only draft clarification questions and acceptance criteria; separate human actions
-record answers and approve or reject each artifact.
+record answers and approve or reject each artifact. A second per-revision job can
+generate bilingual test-case drafts only from approved criteria. Each result keeps
+its source criterion ID and remains a draft until an authorized human reviews it.
 
 ## MVP scope
 
@@ -69,6 +71,7 @@ record answers and approve or reject each artifact.
 - Glossary-aware Japanese–Vietnamese analysis
 - Human review and confirmation
 - Clarification questions and acceptance criteria
+- Test-case generation from approved acceptance criteria
 - Basic exports and audit history
 
 ## Deferred scope

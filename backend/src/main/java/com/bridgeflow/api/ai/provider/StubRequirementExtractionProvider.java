@@ -60,6 +60,25 @@ public class StubRequirementExtractionProvider implements RequirementExtractionP
     }
 
     @Override
+    public TestCaseResult generateTestCases(TestCaseRequest request) {
+        return new TestCaseResult(request.approvedCriteria().stream()
+            .limit(request.maxTestCases())
+            .map(criterion -> new TestCaseCandidate(
+                criterion.id(),
+                "受入条件を検証する: " + criterion.japaneseText(),
+                "Xác minh tiêu chí: " + criterion.vietnameseText(),
+                "対象機能を利用できるユーザーがログインしている。",
+                "Người dùng có quyền sử dụng chức năng đã đăng nhập.",
+                "1. 対象画面を開く。\n2. 受入条件に記載された操作を実行する。",
+                "1. Mở màn hình mục tiêu.\n2. Thực hiện thao tác nêu trong tiêu chí chấp nhận.",
+                criterion.japaneseText(),
+                criterion.vietnameseText(),
+                "HIGH"
+            ))
+            .toList());
+    }
+
+    @Override
     public String providerName() { return "stub"; }
 
     @Override

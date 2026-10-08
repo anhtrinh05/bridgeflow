@@ -101,6 +101,15 @@ Clarification questions additionally retain bilingual answers and answer provena
 The database keeps one analysis job per revision and purpose so repeated generation
 cannot silently duplicate drafts.
 
+### VerificationTestCase
+
+Each generated test case belongs to one `RequirementRevision`, one creating
+`AiJob`, and exactly one approved `AcceptanceCriterion`. It stores bilingual
+title, preconditions, steps, and expected result together with priority and the
+same `DRAFT`, `APPROVED`, or `REJECTED` review provenance. The database permits
+one test-case generation job per revision and purpose; the service validates
+that provider-returned criterion IDs are part of the approved input set.
+
 ## Project glossary
 
 Each glossary term belongs to exactly one project and stores a Japanese term,

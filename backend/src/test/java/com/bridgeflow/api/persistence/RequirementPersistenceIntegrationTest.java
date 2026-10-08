@@ -230,9 +230,13 @@ class RequirementPersistenceIntegrationTest {
         assertThat(contract.required("paths")
             .required("/api/v1/requirements/{requirementId}/revisions/{revisionId}/ai-analysis")
             .required("post").required("operationId").asText()).isEqualTo("generateRequirementAnalysis");
+        assertThat(contract.required("paths")
+            .required("/api/v1/requirements/{requirementId}/revisions/{revisionId}/test-cases/ai-generation")
+            .required("post").required("operationId").asText()).isEqualTo("generateRevisionTestCases");
         var schemas = contract.required("components").required("schemas");
         assertThat(schemas.has("RequirementResponse")).isTrue();
         assertThat(schemas.has("RequirementAnalysisResponse")).isTrue();
+        assertThat(schemas.has("TestCaseWorkspaceResponse")).isTrue();
         assertThat(schemas.required("RequirementResponse").required("required").toString())
             .contains("id", "projectId", "revisions", "archivedAt");
     }
@@ -613,6 +617,70 @@ class RequirementPersistenceIntegrationTest {
                 AuditAction.CLARIFICATION_ANSWERED,
                 AuditAction.CLARIFICATION_REVIEWED,
                 AuditAction.ACCEPTANCE_CRITERION_REVIEWED
+            );
+    }
+
+    @Test
+    void generatesAndReviewsTestCasesFromApprovedAcceptanceCriteria() throws Exception {
+        loginTestUser();
+        var suffix = UUID.randomUUID().toString().substring(0, 8).toUpperCase();
+        var project = sendJson("POST", "/api/v1/projects", """
+            {"code":"TESTCASE-%s","name":"AI test-case project","customerName":null}
+            """.formatted(suffix), 201);
+        var projectId = project.required("id").asText();
+        sendJson("PATCH", "/api/v1/projects/" + projectId, """
+            {"name":"AI test-case project","customerName":null,"aiEnabled":true}
+            """, 200);
+        var requirement = sendJson("POST", "/api/v1/projects/" + projectId + "/requirements", """
+            {"displayKey":"REQ-TEST-CASE","japaneseText":"利用者は注文履歴を確認できる。","vietnameseText":"Người dùng có thể xem lịch sử đơn hàng."}
+            """, 201);
+        var requirementId = requirement.required("id").asText();
+        var revisionId = requirement.required("latestRevision").required("id").asText();
+        var basePath = analysisPath(requirementId, revisionId);
+
+        var analysis = sendJson("POST", basePath + "/ai-analysis", "{}", 200);
+        var blocked = sendJson("POST", basePath + "/test-cases/ai-generation", "{}", 400);
+        assertThat(blocked.required("message").asText()).contains("duyệt ít nhất một acceptance criterion");
+
+        var firstCriterionId = analysis.required("acceptanceCriteria").get(0).required("id").asText();
+        var secondCriterionId = analysis.required("acceptanceCriteria").get(1).required("id").asText();
+        sendJson("POST", basePath + "/acceptance-criteria/" + firstCriterionId + "/review",
+            "{\"decision\":\"APPROVED\"}", 200);
+        sendJson("POST", basePath + "/acceptance-criteria/" + secondCriterionId + "/review",
+            "{\"decision\":\"APPROVED\"}", 200);
+
+        var generated = sendJson("POST", basePath + "/test-cases/ai-generation", "{}", 200);
+        var jobId = generated.required("job").required("id").asText();
+        assertThat(generated.required("job").required("purpose").asText()).isEqualTo("TEST_CASE_GENERATION");
+        assertThat(generated.required("job").required("status").asText()).isEqualTo("COMPLETED");
+        assertThat(generated.required("job").required("candidateCount").asInt()).isEqualTo(2);
+        assertThat(generated.required("job").required("testCaseIds")).hasSize(2);
+        assertThat(generated.required("testCases")).hasSize(2);
+        assertThat(generated.required("testCases").get(0).required("acceptanceCriterionId").asText())
+            .isIn(firstCriterionId, secondCriterionId);
+        assertThat(generated.required("testCases").get(0).required("titleVietnamese").asText())
+            .contains("Xác minh tiêu chí");
+
+        var firstTestCaseId = generated.required("testCases").get(0).required("id").asText();
+        var secondTestCaseId = generated.required("testCases").get(1).required("id").asText();
+        assertThat(sendJson("POST", basePath + "/test-cases/" + firstTestCaseId + "/review",
+            "{\"decision\":\"APPROVED\"}", 200).required("status").asText()).isEqualTo("APPROVED");
+        assertThat(sendJson("POST", basePath + "/test-cases/" + secondTestCaseId + "/review",
+            "{\"decision\":\"REJECTED\"}", 200).required("status").asText()).isEqualTo("REJECTED");
+
+        var same = sendJson("POST", basePath + "/test-cases/ai-generation", "{}", 200);
+        assertThat(same.required("job").required("id").asText()).isEqualTo(jobId);
+        assertThat(same.required("testCases")).hasSize(2);
+        assertThat(sendJson("GET", basePath + "/test-cases", null, 200)
+            .required("job").required("id").asText()).isEqualTo(jobId);
+        assertThat(sendJson("GET", "/api/v1/projects/" + projectId + "/ai-jobs", null, 200)).hasSize(2);
+
+        assertThat(auditEventRepository.findAllByProjectIdOrderByOccurredAtDesc(UUID.fromString(projectId)))
+            .extracting(event -> event.getAction())
+            .contains(
+                AuditAction.AI_TEST_CASE_GENERATION_REQUESTED,
+                AuditAction.AI_TEST_CASE_GENERATION_COMPLETED,
+                AuditAction.TEST_CASE_REVIEWED
             );
     }
 

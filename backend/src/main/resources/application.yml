@@ -27,6 +27,7 @@ bridgeflow:
     max-candidates: ${BRIDGEFLOW_AI_MAX_CANDIDATES:25}
     max-questions: ${BRIDGEFLOW_AI_MAX_QUESTIONS:8}
     max-criteria: ${BRIDGEFLOW_AI_MAX_CRITERIA:12}
+    max-test-cases: ${BRIDGEFLOW_AI_MAX_TEST_CASES:20}
     redact-terms: ${BRIDGEFLOW_AI_REDACT_TERMS:}
     openai:
       api-key: ${OPENAI_API_KEY:}

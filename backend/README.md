@@ -101,6 +101,11 @@ completed job returns the existing artifacts. Project members can read drafts,
 `DEVELOPER` can answer clarification questions, and only `ADMIN` or `BRSE` can
 approve or reject AI artifacts.
 
+Approved acceptance criteria can feed a separate bounded test-case generation
+job. The provider must link every bilingual test case to one approved criterion;
+the API rejects unknown or draft criterion IDs. Repeated generation returns the
+same job and artifacts, while `ADMIN` or `BRSE` records the final review decision.
+
 Production OpenAI configuration is provided only through environment variables:
 
 ```text
@@ -110,6 +115,7 @@ OPENAI_MODEL=gpt-6-astra
 BRIDGEFLOW_AI_REDACT_TERMS=<comma-separated literal values>
 BRIDGEFLOW_AI_MAX_QUESTIONS=8
 BRIDGEFLOW_AI_MAX_CRITERIA=12
+BRIDGEFLOW_AI_MAX_TEST_CASES=20
 ```
 
 The API key is never stored in project data or source control. The integration uses
@@ -126,6 +132,9 @@ provider is `disabled`; automated tests use the deterministic `stub` provider.
 | `PATCH` | `/api/v1/requirements/{requirementId}/revisions/{revisionId}/questions/{questionId}/answer` | Record a bilingual clarification answer |
 | `POST` | `/api/v1/requirements/{requirementId}/revisions/{revisionId}/questions/{questionId}/review` | Approve or reject a question |
 | `POST` | `/api/v1/requirements/{requirementId}/revisions/{revisionId}/acceptance-criteria/{criterionId}/review` | Approve or reject a criterion |
+| `GET` | `/api/v1/requirements/{requirementId}/revisions/{revisionId}/test-cases` | Read generated test-case drafts and provenance |
+| `POST` | `/api/v1/requirements/{requirementId}/revisions/{revisionId}/test-cases/ai-generation` | Generate drafts from approved criteria once per revision |
+| `POST` | `/api/v1/requirements/{requirementId}/revisions/{revisionId}/test-cases/{testCaseId}/review` | Approve or reject a test case |
 
 The default profile only loads production-safe schema migrations from
 `db/migration`. The `dev` profile additionally loads synthetic

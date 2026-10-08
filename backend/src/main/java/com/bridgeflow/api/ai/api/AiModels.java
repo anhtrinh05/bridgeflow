@@ -26,6 +26,7 @@ public final class AiModels {
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) List<UUID> requirementIds,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) List<UUID> clarificationQuestionIds,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) List<UUID> acceptanceCriterionIds,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) List<UUID> testCaseIds,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true) String errorCode,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true) String errorMessage,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) Instant createdAt,

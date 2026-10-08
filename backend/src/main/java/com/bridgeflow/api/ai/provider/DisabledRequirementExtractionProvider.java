@@ -18,6 +18,11 @@ public class DisabledRequirementExtractionProvider implements RequirementExtract
     }
 
     @Override
+    public TestCaseResult generateTestCases(TestCaseRequest request) {
+        throw unconfigured();
+    }
+
+    @Override
     public String providerName() { return "disabled"; }
 
     @Override

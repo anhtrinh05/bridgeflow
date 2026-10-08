@@ -9,6 +9,8 @@ public interface RequirementExtractionProvider {
 
     AnalysisResult analyze(AnalysisRequest request);
 
+    TestCaseResult generateTestCases(TestCaseRequest request);
+
     String providerName();
 
     String modelName();
@@ -50,5 +52,35 @@ public interface RequirementExtractionProvider {
     }
 
     record AcceptanceCriterionCandidate(String japaneseText, String vietnameseText) {
+    }
+
+    record TestCaseRequest(
+        UUID correlationId,
+        String requirementJapanese,
+        String requirementVietnamese,
+        List<ApprovedCriterion> approvedCriteria,
+        List<GlossaryEntry> glossary,
+        int maxTestCases
+    ) {
+    }
+
+    record ApprovedCriterion(UUID id, String japaneseText, String vietnameseText) {
+    }
+
+    record TestCaseResult(List<TestCaseCandidate> testCases) {
+    }
+
+    record TestCaseCandidate(
+        UUID acceptanceCriterionId,
+        String titleJapanese,
+        String titleVietnamese,
+        String preconditionsJapanese,
+        String preconditionsVietnamese,
+        String stepsJapanese,
+        String stepsVietnamese,
+        String expectedResultJapanese,
+        String expectedResultVietnamese,
+        String priority
+    ) {
     }
 }

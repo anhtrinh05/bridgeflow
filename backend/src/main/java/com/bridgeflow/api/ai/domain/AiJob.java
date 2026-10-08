@@ -114,9 +114,20 @@ public class AiJob {
         String model,
         AppUser requestedBy
     ) {
+        this(project, requirementRevision, "REQUIREMENT_ANALYSIS", provider, model, requestedBy);
+    }
+
+    public AiJob(
+        Project project,
+        RequirementRevision requirementRevision,
+        String purpose,
+        String provider,
+        String model,
+        AppUser requestedBy
+    ) {
         this.project = Objects.requireNonNull(project, "project is required");
         this.requirementRevision = Objects.requireNonNull(requirementRevision, "requirementRevision is required");
-        this.purpose = "REQUIREMENT_ANALYSIS";
+        this.purpose = requireText(purpose, "purpose");
         this.provider = requireText(provider, "provider");
         this.model = requireText(model, "model");
         this.requestedBy = Objects.requireNonNull(requestedBy, "requestedBy is required");

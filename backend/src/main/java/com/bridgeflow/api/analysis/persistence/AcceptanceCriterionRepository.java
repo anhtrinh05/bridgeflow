@@ -9,6 +9,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import com.bridgeflow.api.analysis.domain.AcceptanceCriterion;
+import com.bridgeflow.api.analysis.domain.ArtifactReviewStatus;
 
 public interface AcceptanceCriterionRepository extends JpaRepository<AcceptanceCriterion, UUID> {
     @Query("""
@@ -32,5 +33,15 @@ public interface AcceptanceCriterionRepository extends JpaRepository<AcceptanceC
     Optional<AcceptanceCriterion> findForRevision(
         @Param("id") UUID id,
         @Param("revisionId") UUID revisionId
+    );
+
+    @Query("""
+        SELECT criterion FROM AcceptanceCriterion criterion
+        WHERE criterion.requirementRevision.id = :revisionId AND criterion.status = :status
+        ORDER BY criterion.createdAt ASC
+        """)
+    List<AcceptanceCriterion> findAllForRevisionAndStatus(
+        @Param("revisionId") UUID revisionId,
+        @Param("status") ArtifactReviewStatus status
     );
 }

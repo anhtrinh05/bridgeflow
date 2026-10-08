@@ -10,6 +10,7 @@ import com.bridgeflow.api.ai.domain.AiJob;
 import com.bridgeflow.api.analysis.persistence.AcceptanceCriterionRepository;
 import com.bridgeflow.api.analysis.persistence.ClarificationQuestionRepository;
 import com.bridgeflow.api.requirement.persistence.RequirementRevisionRepository;
+import com.bridgeflow.api.testcase.persistence.VerificationTestCaseRepository;
 
 @Component
 public class AiJobResponseMapper {
@@ -17,15 +18,18 @@ public class AiJobResponseMapper {
     private final RequirementRevisionRepository revisionRepository;
     private final ClarificationQuestionRepository questionRepository;
     private final AcceptanceCriterionRepository criterionRepository;
+    private final VerificationTestCaseRepository testCaseRepository;
 
     public AiJobResponseMapper(
         RequirementRevisionRepository revisionRepository,
         ClarificationQuestionRepository questionRepository,
-        AcceptanceCriterionRepository criterionRepository
+        AcceptanceCriterionRepository criterionRepository,
+        VerificationTestCaseRepository testCaseRepository
     ) {
         this.revisionRepository = revisionRepository;
         this.questionRepository = questionRepository;
         this.criterionRepository = criterionRepository;
+        this.testCaseRepository = testCaseRepository;
     }
 
     public AiJobResponse toResponse(AiJob job) {
@@ -41,10 +45,13 @@ public class AiJobResponseMapper {
         var criterionIds = criterionRepository.findAllForJob(job.getId()).stream()
             .map(criterion -> criterion.getId())
             .toList();
+        var testCaseIds = testCaseRepository.findAllForJob(job.getId()).stream()
+            .map(testCase -> testCase.getId())
+            .toList();
         return new AiJobResponse(
             job.getId(), job.getProjectId(), job.getDocumentVersionId(), job.getRequirementRevisionId(),
             job.getPurpose(), job.getStatus().name(), job.getProvider(), job.getModel(), job.getCorrelationId(),
-            job.getRequestedById(), job.getCandidateCount(), requirementIds, questionIds, criterionIds,
+            job.getRequestedById(), job.getCandidateCount(), requirementIds, questionIds, criterionIds, testCaseIds,
             job.getErrorCode(), job.getErrorMessage(), job.getCreatedAt(), job.getStartedAt(), job.getCompletedAt()
         );
     }
