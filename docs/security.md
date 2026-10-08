@@ -50,7 +50,7 @@ Before sending content to an AI provider, the backend must:
 1. Confirm that AI processing is enabled for the project.
 2. Verify the requesting user's project role.
 3. Remove unrelated document sections and redact configured sensitive fields.
-4. Record the provider, model, purpose, document version, and requesting user.
+4. Record the provider, model, purpose, immutable target version/revision, and requesting user.
 5. Send only the minimum text required for the current operation.
 
 The selected provider must have documented retention and training controls suitable for the deployment. Provider responses remain untrusted drafts until reviewed by a human.
@@ -60,6 +60,10 @@ storage (`store: false`), sends a per-job correlation ID, and reads the API key 
 from the process environment. Project AI processing is disabled by default. The
 backend strips email addresses and configured literal sensitive values before the
 request, applies a character budget, and never stores or logs raw prompts.
+Requirement-analysis prompts contain only the selected bilingual revision and the
+project glossary, not unrelated documents. Structured output is size-bounded and
+validated before persistence. AI output remains `DRAFT` until an `ADMIN` or `BRSE`
+records an explicit review decision; provider output cannot confirm a requirement.
 
 ## Logging rules
 

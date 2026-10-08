@@ -14,7 +14,8 @@ public final class AiModels {
     public record AiJobResponse(
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) UUID id,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) UUID projectId,
-        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) UUID documentVersionId,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true) UUID documentVersionId,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true) UUID requirementRevisionId,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String purpose,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String status,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String provider,
@@ -23,6 +24,8 @@ public final class AiModels {
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) UUID requestedBy,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) int candidateCount,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) List<UUID> requirementIds,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) List<UUID> clarificationQuestionIds,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) List<UUID> acceptanceCriterionIds,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true) String errorCode,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true) String errorMessage,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) Instant createdAt,

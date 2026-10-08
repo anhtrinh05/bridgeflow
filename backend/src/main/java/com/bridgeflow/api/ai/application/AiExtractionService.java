@@ -53,6 +53,7 @@ public class AiExtractionService {
     private final SensitiveTextRedactor redactor;
     private final RequirementExtractionProvider provider;
     private final AuditService auditService;
+    private final AiJobResponseMapper responseMapper;
     private final int maxCandidates;
 
     public AiExtractionService(
@@ -69,6 +70,7 @@ public class AiExtractionService {
         SensitiveTextRedactor redactor,
         RequirementExtractionProvider provider,
         AuditService auditService,
+        AiJobResponseMapper responseMapper,
         @Value("${bridgeflow.ai.max-candidates:25}") int maxCandidates
     ) {
         this.jobRepository = jobRepository;
@@ -84,6 +86,7 @@ public class AiExtractionService {
         this.redactor = redactor;
         this.provider = provider;
         this.auditService = auditService;
+        this.responseMapper = responseMapper;
         if (maxCandidates < 1 || maxCandidates > 100) {
             throw new IllegalArgumentException("AI max-candidates must be between 1 and 100");
         }
@@ -93,7 +96,7 @@ public class AiExtractionService {
     public List<AiJobResponse> list(UUID userId, UUID projectId) {
         accessService.requireMember(projectId, userId);
         return jobRepository.findAllForProject(projectId).stream()
-            .map(this::toResponse)
+            .map(responseMapper::toResponse)
             .toList();
     }
 
@@ -116,7 +119,7 @@ public class AiExtractionService {
         var version = versionRepository.findByIdAndDocumentId(versionId, documentId)
             .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy version của tài liệu này."));
         var existing = jobRepository.findForVersionAndPurpose(versionId, PURPOSE).orElse(null);
-        if (existing != null && existing.getStatus() != AiJobStatus.FAILED) return toResponse(existing);
+        if (existing != null && existing.getStatus() != AiJobStatus.FAILED) return responseMapper.toResponse(existing);
 
         var job = existing == null
             ? new AiJob(
@@ -153,7 +156,7 @@ public class AiExtractionService {
             job.fail("AI_EXTRACTION_FAILED", safeMessage(exception));
             jobRepository.saveAndFlush(job);
             auditService.record(projectId, userId, AuditAction.AI_EXTRACTION_FAILED, "AI_JOB", job.getId());
-            return toResponse(job);
+            return responseMapper.toResponse(job);
         }
 
         var sequence = 1;
@@ -169,7 +172,7 @@ public class AiExtractionService {
         job.complete(candidates.size());
         jobRepository.saveAndFlush(job);
         auditService.record(projectId, userId, AuditAction.AI_EXTRACTION_COMPLETED, "AI_JOB", job.getId());
-        return toResponse(job);
+        return responseMapper.toResponse(job);
     }
 
     private String nextDisplayKey(UUID projectId, UUID documentId, int start) {
@@ -180,20 +183,6 @@ public class AiExtractionService {
             if (requirementRepository.findByProjectIdAndDisplayKey(projectId, candidate).isEmpty()) return candidate;
         }
         throw new IllegalStateException("Không thể cấp mã requirement AI mới.");
-    }
-
-    private AiJobResponse toResponse(AiJob job) {
-        var requirementIds = revisionRepository
-            .findAllByDocumentVersionIdOrderByCreatedAtAsc(job.getDocumentVersionId()).stream()
-            .map(revision -> revision.getRequirement().getId())
-            .distinct()
-            .toList();
-        return new AiJobResponse(
-            job.getId(), job.getProjectId(), job.getDocumentVersionId(), job.getPurpose(), job.getStatus().name(),
-            job.getProvider(), job.getModel(), job.getCorrelationId(), job.getRequestedById(),
-            job.getCandidateCount(), requirementIds, job.getErrorCode(), job.getErrorMessage(),
-            job.getCreatedAt(), job.getStartedAt(), job.getCompletedAt()
-        );
     }
 
     private String requireText(String value, String field) {

@@ -9,9 +9,12 @@ public class DisabledRequirementExtractionProvider implements RequirementExtract
 
     @Override
     public ExtractionResult extract(ExtractionRequest request) {
-        throw new IllegalStateException(
-            "AI provider chưa được cấu hình. Đặt BRIDGEFLOW_AI_PROVIDER=openai và OPENAI_API_KEY trước khi chạy."
-        );
+        throw unconfigured();
+    }
+
+    @Override
+    public AnalysisResult analyze(AnalysisRequest request) {
+        throw unconfigured();
     }
 
     @Override
@@ -19,4 +22,10 @@ public class DisabledRequirementExtractionProvider implements RequirementExtract
 
     @Override
     public String modelName() { return "none"; }
+
+    private IllegalStateException unconfigured() {
+        return new IllegalStateException(
+            "AI provider chưa được cấu hình. Đặt BRIDGEFLOW_AI_PROVIDER=openai và OPENAI_API_KEY trước khi chạy."
+        );
+    }
 }

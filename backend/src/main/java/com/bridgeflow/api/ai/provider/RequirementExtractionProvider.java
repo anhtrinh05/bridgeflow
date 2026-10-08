@@ -7,6 +7,8 @@ public interface RequirementExtractionProvider {
 
     ExtractionResult extract(ExtractionRequest request);
 
+    AnalysisResult analyze(AnalysisRequest request);
+
     String providerName();
 
     String modelName();
@@ -26,5 +28,27 @@ public interface RequirementExtractionProvider {
     }
 
     record RequirementCandidate(String japaneseText, String vietnameseText, String sourceAnchor) {
+    }
+
+    record AnalysisRequest(
+        UUID correlationId,
+        String japaneseText,
+        String vietnameseText,
+        List<GlossaryEntry> glossary,
+        int maxQuestions,
+        int maxCriteria
+    ) {
+    }
+
+    record AnalysisResult(
+        List<ClarificationCandidate> clarificationQuestions,
+        List<AcceptanceCriterionCandidate> acceptanceCriteria
+    ) {
+    }
+
+    record ClarificationCandidate(String japaneseText, String vietnameseText, String rationale) {
+    }
+
+    record AcceptanceCriterionCandidate(String japaneseText, String vietnameseText) {
     }
 }

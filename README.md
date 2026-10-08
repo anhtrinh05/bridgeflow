@@ -14,6 +14,8 @@ AI-assisted requirements workspace for Japanese–Vietnamese software teams.
 - Project document upload/download with immutable versions and SHA-256 checksums
 - Stable requirement identity with append-only bilingual revisions
 - BrSE review/confirmation workflow and revision history
+- Idempotent AI-generated bilingual clarification questions and acceptance criteria
+- Human answers and per-artifact approve/reject audit trail
 - Synthetic Japanese–Vietnamese demo workspace (no customer data)
 - Responsive frontend with loading, error, and empty states
 
@@ -88,6 +90,7 @@ See [backend/README.md](backend/README.md) for details and optional tool paths.
 
 ## Planned milestones
 
-1. Japanese document ingestion and requirement extraction (in progress: AI draft extraction implemented)
-2. Q&A, acceptance criteria, and test-case generation
-3. Requirement traceability, change-impact analysis, and production observability
+1. Japanese document ingestion and requirement extraction (implemented)
+2. Q&A and acceptance-criteria generation with human review (implemented)
+3. Test-case generation, requirement traceability, and change-impact analysis
+4. Production observability and operational hardening

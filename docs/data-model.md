@@ -85,11 +85,21 @@ The MVP uses PostgreSQL UUIDs and relational indexes. Vector matching is deferre
 
 ### AiJob
 
-Each extraction attempt records its project, immutable document version, purpose,
+Each AI attempt records its project, exactly one immutable document version or
+requirement revision, purpose,
 provider/model identifiers, correlation ID, requesting user, lifecycle timestamps,
 candidate count, and a bounded error summary. Raw prompts and document text are not
 stored in the job table. A successful job creates only draft requirement revisions;
 each revision retains `document_version_id` and `source_anchor` provenance.
+
+### ClarificationQuestion and AcceptanceCriterion
+
+Both artifacts belong to a specific `RequirementRevision` and retain the creating
+`AiJob`. Japanese and Vietnamese text are stored together. Review state is one of
+`DRAFT`, `APPROVED`, or `REJECTED`, with reviewer and timestamp provenance.
+Clarification questions additionally retain bilingual answers and answer provenance.
+The database keeps one analysis job per revision and purpose so repeated generation
+cannot silently duplicate drafts.
 
 ## Project glossary
 

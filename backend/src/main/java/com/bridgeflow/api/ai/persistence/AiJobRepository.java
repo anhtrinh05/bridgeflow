@@ -28,4 +28,14 @@ public interface AiJobRepository extends JpaRepository<AiJob, UUID> {
         @Param("documentVersionId") UUID documentVersionId,
         @Param("purpose") String purpose
     );
+
+    @Query("""
+        SELECT job FROM AiJob job
+        WHERE job.requirementRevision.id = :revisionId
+          AND job.purpose = :purpose
+        """)
+    Optional<AiJob> findForRevisionAndPurpose(
+        @Param("revisionId") UUID revisionId,
+        @Param("purpose") String purpose
+    );
 }

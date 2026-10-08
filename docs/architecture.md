@@ -53,10 +53,13 @@ Spring Boot API
 6. Confirmed revisions can be linked to Q&A, acceptance criteria, and test cases.
 7. A later document version creates new revisions rather than overwriting history.
 
-The first AI increment executes a bounded extraction synchronously while persisting
+The AI increments execute bounded extraction and per-revision analysis synchronously while persisting
 the job lifecycle (`PENDING`, `RUNNING`, `COMPLETED`, or `FAILED`). This keeps the
 MVP operationally simple and makes a later move to a background runner possible
-without changing the API or losing auditability.
+without changing the API or losing auditability. Each job targets exactly one
+immutable document version or one requirement revision. Revision analysis creates
+only draft clarification questions and acceptance criteria; separate human actions
+record answers and approve or reject each artifact.
 
 ## MVP scope
 

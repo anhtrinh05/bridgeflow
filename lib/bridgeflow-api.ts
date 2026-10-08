@@ -10,6 +10,47 @@ export type GlossaryTerm = components["schemas"]["GlossaryTermResponse"];
 export type ProjectDocument = components["schemas"]["DocumentResponse"];
 export type DocumentVersion = components["schemas"]["DocumentVersionResponse"];
 export type AiJob = components["schemas"]["AiJobResponse"];
+export type ArtifactReviewStatus = "DRAFT" | "APPROVED" | "REJECTED";
+export type AnalysisAiJob = AiJob & {
+  documentVersionId: string | null;
+  requirementRevisionId: string | null;
+  clarificationQuestionIds: string[];
+  acceptanceCriterionIds: string[];
+};
+export type ClarificationQuestion = {
+  id: string;
+  requirementRevisionId: string;
+  aiJobId: string;
+  japaneseText: string;
+  vietnameseText: string;
+  rationale: string | null;
+  answerJapanese: string | null;
+  answerVietnamese: string | null;
+  status: ArtifactReviewStatus;
+  createdBy: string;
+  createdAt: string;
+  reviewedBy: string | null;
+  reviewedAt: string | null;
+  answeredBy: string | null;
+  answeredAt: string | null;
+};
+export type AcceptanceCriterion = {
+  id: string;
+  requirementRevisionId: string;
+  aiJobId: string;
+  japaneseText: string;
+  vietnameseText: string;
+  status: ArtifactReviewStatus;
+  createdBy: string;
+  createdAt: string;
+  reviewedBy: string | null;
+  reviewedAt: string | null;
+};
+export type RequirementAnalysis = {
+  job: AnalysisAiJob | null;
+  questions: ClarificationQuestion[];
+  acceptanceCriteria: AcceptanceCriterion[];
+};
 
 type CreateProjectRequest = components["schemas"]["CreateProjectRequest"];
 type UpdateProjectRequest = components["schemas"]["UpdateProjectRequest"];
@@ -158,4 +199,37 @@ export const bridgeFlowApi = {
     request<AiJob>(`/documents/${documentId}/versions/${versionId}/ai-extractions`, {
       method: "POST", body: "{}",
     }),
+  getRequirementAnalysis: (requirementId: string, revisionId: string) =>
+    request<RequirementAnalysis>(`/requirements/${requirementId}/revisions/${revisionId}/analysis`),
+  generateRequirementAnalysis: (requirementId: string, revisionId: string) =>
+    request<RequirementAnalysis>(`/requirements/${requirementId}/revisions/${revisionId}/ai-analysis`, {
+      method: "POST", body: "{}",
+    }),
+  answerClarificationQuestion: (
+    requirementId: string,
+    revisionId: string,
+    questionId: string,
+    body: { japaneseText: string; vietnameseText: string },
+  ) => request<ClarificationQuestion>(
+    `/requirements/${requirementId}/revisions/${revisionId}/questions/${questionId}/answer`,
+    { method: "PATCH", body: JSON.stringify(body) },
+  ),
+  reviewClarificationQuestion: (
+    requirementId: string,
+    revisionId: string,
+    questionId: string,
+    decision: Exclude<ArtifactReviewStatus, "DRAFT">,
+  ) => request<ClarificationQuestion>(
+    `/requirements/${requirementId}/revisions/${revisionId}/questions/${questionId}/review`,
+    { method: "POST", body: JSON.stringify({ decision }) },
+  ),
+  reviewAcceptanceCriterion: (
+    requirementId: string,
+    revisionId: string,
+    criterionId: string,
+    decision: Exclude<ArtifactReviewStatus, "DRAFT">,
+  ) => request<AcceptanceCriterion>(
+    `/requirements/${requirementId}/revisions/${revisionId}/acceptance-criteria/${criterionId}/review`,
+    { method: "POST", body: JSON.stringify({ decision }) },
+  ),
 };

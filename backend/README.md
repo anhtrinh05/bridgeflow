@@ -94,6 +94,13 @@ redacted text needed for that job is sent to the configured provider. Results ar
 saved as draft requirements linked to the source document version and must be
 confirmed by a human reviewer.
 
+The same project opt-in also gates revision analysis. `ADMIN` and `BRSE` members
+can generate bounded bilingual clarification questions and acceptance criteria
+for one requirement revision. Generation is idempotent per revision: retrying a
+completed job returns the existing artifacts. Project members can read drafts,
+`DEVELOPER` can answer clarification questions, and only `ADMIN` or `BRSE` can
+approve or reject AI artifacts.
+
 Production OpenAI configuration is provided only through environment variables:
 
 ```text
@@ -101,6 +108,8 @@ BRIDGEFLOW_AI_PROVIDER=openai
 OPENAI_API_KEY=<secret>
 OPENAI_MODEL=gpt-6-astra
 BRIDGEFLOW_AI_REDACT_TERMS=<comma-separated literal values>
+BRIDGEFLOW_AI_MAX_QUESTIONS=8
+BRIDGEFLOW_AI_MAX_CRITERIA=12
 ```
 
 The API key is never stored in project data or source control. The integration uses
@@ -112,6 +121,11 @@ provider is `disabled`; automated tests use the deterministic `stub` provider.
 | --- | --- | --- |
 | `POST` | `/api/v1/documents/{documentId}/versions/{versionId}/ai-extractions` | Extract draft requirements once for a document version |
 | `GET` | `/api/v1/projects/{projectId}/ai-jobs` | List persistent AI job results without prompt content |
+| `POST` | `/api/v1/requirements/{requirementId}/revisions/{revisionId}/ai-analysis` | Generate clarification and acceptance drafts once per revision |
+| `GET` | `/api/v1/requirements/{requirementId}/revisions/{revisionId}/analysis` | Read drafts and their review state |
+| `PATCH` | `/api/v1/requirements/{requirementId}/revisions/{revisionId}/questions/{questionId}/answer` | Record a bilingual clarification answer |
+| `POST` | `/api/v1/requirements/{requirementId}/revisions/{revisionId}/questions/{questionId}/review` | Approve or reject a question |
+| `POST` | `/api/v1/requirements/{requirementId}/revisions/{revisionId}/acceptance-criteria/{criterionId}/review` | Approve or reject a criterion |
 
 The default profile only loads production-safe schema migrations from
 `db/migration`. The `dev` profile additionally loads synthetic

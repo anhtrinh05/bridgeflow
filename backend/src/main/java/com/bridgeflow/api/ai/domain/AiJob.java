@@ -7,6 +7,7 @@ import java.util.UUID;
 import com.bridgeflow.api.auth.domain.AppUser;
 import com.bridgeflow.api.document.domain.DocumentVersion;
 import com.bridgeflow.api.project.domain.Project;
+import com.bridgeflow.api.requirement.domain.RequirementRevision;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -41,9 +42,13 @@ public class AiJob {
     @JoinColumn(name = "project_id", nullable = false)
     private Project project;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "document_version_id", nullable = false)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "document_version_id")
     private DocumentVersion documentVersion;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "requirement_revision_id")
+    private RequirementRevision requirementRevision;
 
     @Column(nullable = false, length = 40)
     private String purpose;
@@ -102,6 +107,22 @@ public class AiJob {
         this.correlationId = UUID.randomUUID();
     }
 
+    public AiJob(
+        Project project,
+        RequirementRevision requirementRevision,
+        String provider,
+        String model,
+        AppUser requestedBy
+    ) {
+        this.project = Objects.requireNonNull(project, "project is required");
+        this.requirementRevision = Objects.requireNonNull(requirementRevision, "requirementRevision is required");
+        this.purpose = "REQUIREMENT_ANALYSIS";
+        this.provider = requireText(provider, "provider");
+        this.model = requireText(model, "model");
+        this.requestedBy = Objects.requireNonNull(requestedBy, "requestedBy is required");
+        this.correlationId = UUID.randomUUID();
+    }
+
     @PrePersist
     void onCreate() {
         createdAt = Instant.now();
@@ -135,7 +156,8 @@ public class AiJob {
 
     public UUID getId() { return id; }
     public UUID getProjectId() { return project.getId(); }
-    public UUID getDocumentVersionId() { return documentVersion.getId(); }
+    public UUID getDocumentVersionId() { return documentVersion == null ? null : documentVersion.getId(); }
+    public UUID getRequirementRevisionId() { return requirementRevision == null ? null : requirementRevision.getId(); }
     public String getPurpose() { return purpose; }
     public AiJobStatus getStatus() { return status; }
     public String getProvider() { return provider; }

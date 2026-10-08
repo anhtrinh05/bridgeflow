@@ -227,8 +227,12 @@ class RequirementPersistenceIntegrationTest {
         assertThat(contract.required("paths")
             .required("/api/v1/documents/{documentId}/versions/{versionId}/ai-extractions")
             .required("post").required("operationId").asText()).isEqualTo("extractRequirements");
+        assertThat(contract.required("paths")
+            .required("/api/v1/requirements/{requirementId}/revisions/{revisionId}/ai-analysis")
+            .required("post").required("operationId").asText()).isEqualTo("generateRequirementAnalysis");
         var schemas = contract.required("components").required("schemas");
         assertThat(schemas.has("RequirementResponse")).isTrue();
+        assertThat(schemas.has("RequirementAnalysisResponse")).isTrue();
         assertThat(schemas.required("RequirementResponse").required("required").toString())
             .contains("id", "projectId", "revisions", "archivedAt");
     }
@@ -530,6 +534,90 @@ class RequirementPersistenceIntegrationTest {
         assertThat(auditEventRepository.findAllByProjectIdOrderByOccurredAtDesc(UUID.fromString(projectId)))
             .extracting(event -> event.getAction())
             .contains(AuditAction.AI_EXTRACTION_REQUESTED, AuditAction.AI_EXTRACTION_COMPLETED);
+    }
+
+    @Test
+    void generatesAnswersAndReviewsRequirementAnalysisDraftsWithoutDuplication() throws Exception {
+        loginTestUser();
+        var suffix = UUID.randomUUID().toString().substring(0, 8).toUpperCase();
+        var project = sendJson("POST", "/api/v1/projects", """
+            {"code":"ANALYZE-%s","name":"AI analysis project","customerName":null}
+            """.formatted(suffix), 201);
+        var projectId = project.required("id").asText();
+        sendJson("POST", "/api/v1/projects/" + projectId + "/glossary", """
+            {"japaneseTerm":"注文履歴","vietnameseTerm":"Lịch sử đơn hàng","notes":"UI label"}
+            """, 201);
+
+        var requirement = sendJson("POST", "/api/v1/projects/" + projectId + "/requirements", """
+            {"displayKey":"REQ-ANALYSIS","japaneseText":"利用者は注文履歴を確認できる。","vietnameseText":"Người dùng có thể xem lịch sử đơn hàng."}
+            """, 201);
+        var requirementId = requirement.required("id").asText();
+        var revisionId = requirement.required("latestRevision").required("id").asText();
+
+        var disabled = sendJson(
+            "POST", analysisPath(requirementId, revisionId) + "/ai-analysis", "{}", 400
+        );
+        assertThat(disabled.required("message").asText()).contains("AI chưa được bật");
+        sendJson("PATCH", "/api/v1/projects/" + projectId, """
+            {"name":"AI analysis project","customerName":null,"aiEnabled":true}
+            """, 200);
+
+        var analysis = sendJson(
+            "POST", analysisPath(requirementId, revisionId) + "/ai-analysis", "{}", 200
+        );
+        var jobId = analysis.required("job").required("id").asText();
+        assertThat(analysis.required("job").required("status").asText()).isEqualTo("COMPLETED");
+        assertThat(analysis.required("job").required("purpose").asText()).isEqualTo("REQUIREMENT_ANALYSIS");
+        assertThat(analysis.required("job").required("requirementRevisionId").asText()).isEqualTo(revisionId);
+        assertThat(analysis.required("job").required("documentVersionId").isNull()).isTrue();
+        assertThat(analysis.required("job").required("candidateCount").asInt()).isEqualTo(4);
+        assertThat(analysis.required("questions")).hasSize(2);
+        assertThat(analysis.required("acceptanceCriteria")).hasSize(2);
+
+        var questionId = analysis.required("questions").get(0).required("id").asText();
+        var answered = sendJson(
+            "PATCH", analysisPath(requirementId, revisionId) + "/questions/" + questionId + "/answer", """
+            {"japaneseText":"注文一覧が表示された時点です。","vietnameseText":"Khi danh sách đơn hàng được hiển thị."}
+            """, 200
+        );
+        assertThat(answered.required("answerVietnamese").asText()).contains("danh sách đơn hàng");
+        assertThat(answered.required("answeredAt").isNull()).isFalse();
+
+        var reviewedQuestion = sendJson(
+            "POST", analysisPath(requirementId, revisionId) + "/questions/" + questionId + "/review",
+            "{\"decision\":\"APPROVED\"}", 200
+        );
+        assertThat(reviewedQuestion.required("status").asText()).isEqualTo("APPROVED");
+        var criterionId = analysis.required("acceptanceCriteria").get(0).required("id").asText();
+        var reviewedCriterion = sendJson(
+            "POST", analysisPath(requirementId, revisionId) + "/acceptance-criteria/" + criterionId + "/review",
+            "{\"decision\":\"REJECTED\"}", 200
+        );
+        assertThat(reviewedCriterion.required("status").asText()).isEqualTo("REJECTED");
+
+        var sameAnalysis = sendJson(
+            "POST", analysisPath(requirementId, revisionId) + "/ai-analysis", "{}", 200
+        );
+        assertThat(sameAnalysis.required("job").required("id").asText()).isEqualTo(jobId);
+        assertThat(sameAnalysis.required("questions")).hasSize(2);
+        assertThat(sameAnalysis.required("acceptanceCriteria")).hasSize(2);
+        assertThat(sendJson("GET", analysisPath(requirementId, revisionId) + "/analysis", null, 200)
+            .required("job").required("id").asText()).isEqualTo(jobId);
+        assertThat(sendJson("GET", "/api/v1/projects/" + projectId + "/ai-jobs", null, 200)).hasSize(1);
+
+        assertThat(auditEventRepository.findAllByProjectIdOrderByOccurredAtDesc(UUID.fromString(projectId)))
+            .extracting(event -> event.getAction())
+            .contains(
+                AuditAction.AI_ANALYSIS_REQUESTED,
+                AuditAction.AI_ANALYSIS_COMPLETED,
+                AuditAction.CLARIFICATION_ANSWERED,
+                AuditAction.CLARIFICATION_REVIEWED,
+                AuditAction.ACCEPTANCE_CRITERION_REVIEWED
+            );
+    }
+
+    private String analysisPath(String requirementId, String revisionId) {
+        return "/api/v1/requirements/" + requirementId + "/revisions/" + revisionId;
     }
 
     private UUID loginTestUser() throws Exception {
