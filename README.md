@@ -96,6 +96,21 @@ so no system-wide policy change is needed.
 
 See [backend/README.md](backend/README.md) for details and optional tool paths.
 
+## Production operations
+
+Copy `.env.production.example` to the ignored `.env.production`, replace every
+placeholder secret, then start the hardened backend/PostgreSQL stack:
+
+```powershell
+docker compose --env-file .env.production -f compose.production.yaml up -d --build
+```
+
+The backend binds to `127.0.0.1` by default. Terminate TLS at a trusted reverse
+proxy and forward only the API port. PostgreSQL is isolated on an internal
+network; database and private documents use named volumes. See
+[docs/operations.md](docs/operations.md) for backup, restore, retention, and
+release procedures.
+
 ## Planned milestones
 
 1. Japanese document ingestion and requirement extraction (implemented)
@@ -104,5 +119,9 @@ See [backend/README.md](backend/README.md) for details and optional tool paths.
 4. Requirement traceability and rule-based change-impact analysis (implemented)
 5. Cross-requirement relations (implemented)
 6. Bilingual requirement exports (implemented)
-7. Production observability foundation (implemented)
-8. Deployment hardening, retention, and backup/restore operations
+6A. Production observability foundation (implemented)
+7. Production operations:
+   - 7A. Deployment packaging and runtime hardening (implemented)
+   - 7B. Configurable retention and complete project deletion (implemented)
+   - 7C. Verified PostgreSQL/document backup and restore tooling (implemented)
+   - 7D. Repeatable release and security verification (implemented)

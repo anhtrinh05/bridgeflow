@@ -80,6 +80,7 @@ its source criterion ID and remains a draft until an authorized human reviews it
 - Audited cross-requirement relations
 - Audited bilingual CSV and Markdown exports
 - Correlation IDs, structured production logs, bounded-cardinality HTTP metrics, and health probes
+- Hardened backend/PostgreSQL Compose deployment, retention deletion receipts, and backup/restore operations
 - Basic exports and audit history
 
 ## Deferred scope

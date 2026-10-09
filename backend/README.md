@@ -29,6 +29,10 @@ Environment variables can override the development defaults:
 | `BRIDGEFLOW_DEMO_PASSWORD` | `bridgeflow-demo` |
 | `BRIDGEFLOW_STORAGE_ROOT` | OS temp directory under `bridgeflow-uploads` |
 | `BRIDGEFLOW_STORAGE_MAX_BYTES` | `10485760` (10 MiB) |
+| `BRIDGEFLOW_CORS_ALLOWED_ORIGINS` | Local frontend origins on port 5173 |
+| `BRIDGEFLOW_RETENTION_ENABLED` | `false` |
+| `BRIDGEFLOW_RETENTION_ARCHIVED_PROJECT_DAYS` | `365` |
+| `BRIDGEFLOW_RETENTION_CRON` | `0 30 2 * * *` (UTC) |
 
 The password above is only for the local Docker database. Use a secret manager in
 deployed environments.
@@ -52,6 +56,7 @@ Except for login, health checks, and API documentation, endpoints require an
 | `GET` | `/api/v1/projects/{projectId}` | Read a project |
 | `PATCH` | `/api/v1/projects/{projectId}` | Update project details |
 | `POST` | `/api/v1/projects/{projectId}/archive` | Archive a project |
+| `DELETE` | `/api/v1/projects/{projectId}` | Permanently delete an archived project after code confirmation |
 | `GET` / `POST` | `/api/v1/projects/{projectId}/glossary` | Search or create glossary terms |
 | `PATCH` / `DELETE` | `/api/v1/projects/{projectId}/glossary/{termId}` | Update or delete a glossary term |
 | `GET` / `POST` | `/api/v1/projects/{projectId}/documents` | List or upload project documents |
@@ -74,6 +79,15 @@ Project roles are enforced by the API: `ADMIN` manages the project,
 read-only access. `ADMIN` and `BRSE` manage glossary terms; every project,
 requirement, and glossary mutation creates an audit event tied to the
 authenticated user.
+
+Only a project `ADMIN` can permanently delete a project. The project must be
+archived first and the JSON request must repeat its exact project code as
+`confirmationCode`. Database rows cascade in one transaction; private document
+files are removed after commit. A deletion receipt containing project ID/code,
+actor (for manual deletion), reason, and timestamp remains outside the project
+foreign-key graph. Optional retention uses the same path for archived projects
+older than `BRIDGEFLOW_RETENTION_ARCHIVED_PROJECT_DAYS`; its scheduler is off by
+default and must be explicitly enabled in production.
 
 Document bytes are stored outside PostgreSQL beneath `BRIDGEFLOW_STORAGE_ROOT`;
 the database stores version metadata, an opaque storage key, and SHA-256. Uploads
@@ -189,6 +203,12 @@ curl http://127.0.0.1:8080/actuator/health/readiness
 
 The integration test starts an isolated PostgreSQL container and verifies the
 production-safe Flyway migrations and stable requirement/revision persistence.
+
+For the complete release gate, run `scripts\verify-release.cmd` from the
+repository root. It runs backend integration tests, frontend lint/type-check/
+production build, and validates `compose.production.yaml` with the example
+environment. Backup and restore procedures are documented in
+`docs/operations.md`.
 
 ### Windows without Docker
 

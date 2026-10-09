@@ -27,6 +27,14 @@ Demo and evaluation environments must use synthetic documents only. Real custome
 - Secrets supplied through runtime configuration, never source control.
 - Configurable retention and complete project deletion.
 
+Permanent deletion is restricted to project `ADMIN`, requires the project to
+be archived, and requires its exact code as explicit confirmation. Project data
+is deleted transactionally through database cascades; private document storage
+is cleaned only after commit. A minimal deletion receipt deliberately survives
+without customer content so operators retain evidence of manual and retention
+deletions. Automated retention is disabled unless production configuration
+explicitly enables it.
+
 ## Implemented authentication boundary
 
 - Login returns a cryptographically random opaque bearer token with an eight-hour expiry.
@@ -78,6 +86,12 @@ Access logs deliberately exclude query strings, headers, bodies, tokens, and
 document text. HTTP metrics use Spring route templates (or UUID-redacted fallback
 paths) so customer/resource identifiers never become metric labels. Prometheus
 and detailed metric endpoints require authentication; only health probes are public.
+
+The production Compose stack keeps PostgreSQL on an internal-only network,
+runs the backend as a non-root user with a read-only root filesystem and dropped
+Linux capabilities, persists only database/document volumes, and binds the API
+to localhost by default. TLS remains the responsibility of the external reverse
+proxy. Production disables Swagger/OpenAPI endpoints and enables graceful shutdown.
 
 ## Public portfolio policy
 
