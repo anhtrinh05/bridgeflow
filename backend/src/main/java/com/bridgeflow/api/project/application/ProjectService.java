@@ -1,6 +1,7 @@
 package com.bridgeflow.api.project.application;
 
 import static com.bridgeflow.api.project.api.ProjectModels.CreateProjectRequest;
+import static com.bridgeflow.api.project.api.ProjectModels.DeleteProjectRequest;
 import static com.bridgeflow.api.project.api.ProjectModels.ProjectResponse;
 import static com.bridgeflow.api.project.api.ProjectModels.UpdateProjectRequest;
 
@@ -35,6 +36,7 @@ public class ProjectService {
     private final ProjectMemberRepository memberRepository;
     private final ProjectAccessService accessService;
     private final AuditService auditService;
+    private final ProjectDeletionService deletionService;
 
     public ProjectService(
         ProjectRepository projectRepository,
@@ -42,7 +44,8 @@ public class ProjectService {
         AppUserRepository userRepository,
         ProjectMemberRepository memberRepository,
         ProjectAccessService accessService,
-        AuditService auditService
+        AuditService auditService,
+        ProjectDeletionService deletionService
     ) {
         this.projectRepository = projectRepository;
         this.requirementRepository = requirementRepository;
@@ -50,6 +53,7 @@ public class ProjectService {
         this.memberRepository = memberRepository;
         this.accessService = accessService;
         this.auditService = auditService;
+        this.deletionService = deletionService;
     }
 
     public List<ProjectResponse> list(UUID userId, boolean includeArchived) {
@@ -99,6 +103,19 @@ public class ProjectService {
         projectRepository.saveAndFlush(project);
         auditService.record(projectId, userId, AuditAction.PROJECT_ARCHIVED, "PROJECT", projectId);
         return toResponse(project, member.getRole());
+    }
+
+    @Transactional
+    public void delete(UUID userId, UUID projectId, DeleteProjectRequest request) {
+        var member = accessService.requireRole(projectId, userId, ProjectRole.ADMIN);
+        var project = member.getProject();
+        if (project.getStatus() != ProjectStatus.ARCHIVED) {
+            throw new IllegalStateException("Project phải được archive trước khi xóa vĩnh viễn.");
+        }
+        if (!project.getCode().equalsIgnoreCase(request.confirmationCode().trim())) {
+            throw new IllegalArgumentException("Mã xác nhận project không khớp.");
+        }
+        deletionService.deleteProject(project, userId, ProjectDeletionReason.MANUAL);
     }
 
     public Project findProject(UUID projectId) {

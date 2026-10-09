@@ -37,10 +37,13 @@ import com.bridgeflow.api.audit.AuditEventRepository;
 import com.bridgeflow.api.auth.domain.AppUser;
 import com.bridgeflow.api.auth.persistence.AppUserRepository;
 import com.bridgeflow.api.project.domain.Project;
+import com.bridgeflow.api.project.application.ProjectDeletionReason;
+import com.bridgeflow.api.project.application.ProjectDeletionService;
 import com.bridgeflow.api.project.membership.ProjectMember;
 import com.bridgeflow.api.project.membership.ProjectMemberRepository;
 import com.bridgeflow.api.project.membership.ProjectRole;
 import com.bridgeflow.api.project.persistence.ProjectRepository;
+import com.bridgeflow.api.project.persistence.ProjectDeletionReceiptRepository;
 import com.bridgeflow.api.requirement.domain.ChangeType;
 import com.bridgeflow.api.requirement.domain.Requirement;
 import com.bridgeflow.api.requirement.domain.RequirementRevision;
@@ -91,6 +94,12 @@ class RequirementPersistenceIntegrationTest {
 
     @Autowired
     private ProjectRepository projectRepository;
+
+    @Autowired
+    private ProjectDeletionReceiptRepository deletionReceiptRepository;
+
+    @Autowired
+    private ProjectDeletionService projectDeletionService;
 
     @Autowired
     private RequirementRepository requirementRepository;
@@ -393,6 +402,67 @@ class RequirementPersistenceIntegrationTest {
     }
 
     @Test
+    void permanentlyDeletesArchivedProjectsAndPurgesExpiredRetentionData() throws Exception {
+        var userId = loginTestUser();
+        var suffix = UUID.randomUUID().toString().substring(0, 8).toUpperCase();
+        var code = "DELETE-" + suffix;
+        var project = sendJson("POST", "/api/v1/projects", """
+            {"code":"%s","name":"Deletion integration project","customerName":null}
+            """.formatted(code), 201);
+        var projectId = project.required("id").asText();
+        sendMultipart(
+            "/api/v1/projects/" + projectId + "/documents",
+            "Private specification", "private.txt", "text/plain",
+            "confidential synthetic content".getBytes(StandardCharsets.UTF_8), 201
+        );
+        assertThat(Files.exists(DOCUMENT_STORAGE.resolve(projectId))).isTrue();
+
+        var activeDelete = sendJson("DELETE", "/api/v1/projects/" + projectId, """
+            {"confirmationCode":"%s"}
+            """.formatted(code), 400);
+        assertThat(activeDelete.required("message").asText()).contains("archive");
+
+        sendJson("POST", "/api/v1/projects/" + projectId + "/archive", "{}", 200);
+        var wrongCode = sendJson("DELETE", "/api/v1/projects/" + projectId, """
+            {"confirmationCode":"WRONG"}
+            """, 400);
+        assertThat(wrongCode.required("message").asText()).contains("không khớp");
+        sendJson("DELETE", "/api/v1/projects/" + projectId, """
+            {"confirmationCode":"%s"}
+            """.formatted(code), 204);
+
+        assertThat(projectRepository.findById(UUID.fromString(projectId))).isEmpty();
+        assertThat(Files.exists(DOCUMENT_STORAGE.resolve(projectId))).isFalse();
+        assertThat(deletionReceiptRepository.findAllByProjectIdOrderByDeletedAtDesc(UUID.fromString(projectId)))
+            .singleElement()
+            .satisfies(receipt -> {
+                assertThat(receipt.getProjectCode()).isEqualTo(code);
+                assertThat(receipt.getDeletedBy()).isEqualTo(userId);
+                assertThat(receipt.getReason()).isEqualTo(ProjectDeletionReason.MANUAL);
+            });
+
+        var retentionCode = "RETENTION-" + suffix;
+        var retentionProject = sendJson("POST", "/api/v1/projects", """
+            {"code":"%s","name":"Expired archived project","customerName":null}
+            """.formatted(retentionCode), 201);
+        var retentionId = retentionProject.required("id").asText();
+        sendJson("POST", "/api/v1/projects/" + retentionId + "/archive", "{}", 200);
+        jdbcTemplate.update(
+            "UPDATE projects SET updated_at = CURRENT_TIMESTAMP - INTERVAL '400 days' WHERE id = ?",
+            UUID.fromString(retentionId)
+        );
+
+        assertThat(projectDeletionService.purgeExpiredArchivedProjects()).isEqualTo(1);
+        assertThat(projectRepository.findById(UUID.fromString(retentionId))).isEmpty();
+        assertThat(deletionReceiptRepository.findAllByProjectIdOrderByDeletedAtDesc(UUID.fromString(retentionId)))
+            .singleElement()
+            .satisfies(receipt -> {
+                assertThat(receipt.getDeletedBy()).isNull();
+                assertThat(receipt.getReason()).isEqualTo(ProjectDeletionReason.RETENTION);
+            });
+    }
+
+    @Test
     void authenticatesUsersAndEnforcesProjectRoles() throws Exception {
         var unauthenticated = sendJsonUnauthenticated("GET", "/api/v1/projects", null, 401);
         assertThat(unauthenticated.required("code").asText()).isEqualTo("UNAUTHENTICATED");
@@ -425,6 +495,10 @@ class RequirementPersistenceIntegrationTest {
             {"japaneseTerm":"閲覧者","vietnameseTerm":"Người xem","notes":null}
             """, 403);
         assertThat(glossaryForbidden.required("code").asText()).isEqualTo("ACCESS_DENIED");
+        var deletionForbidden = sendJson("DELETE", "/api/v1/projects/" + projectId, """
+            {"confirmationCode":"ROLE-%s"}
+            """.formatted(suffix), 403);
+        assertThat(deletionForbidden.required("code").asText()).isEqualTo("ACCESS_DENIED");
         var documentForbidden = sendMultipart(
             "/api/v1/projects/" + projectId + "/documents",
             "Forbidden document", "forbidden.txt", "text/plain",

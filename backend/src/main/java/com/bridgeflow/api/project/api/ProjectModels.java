@@ -26,6 +26,11 @@ public final class ProjectModels {
     ) {
     }
 
+    public record DeleteProjectRequest(
+        @NotBlank @Size(max = 40) String confirmationCode
+    ) {
+    }
+
     public record ProjectResponse(
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) UUID id,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String code,

@@ -6,7 +6,7 @@ import {
   FolderKanban, GitCompareArrows, Languages, LayoutDashboard, LoaderCircle,
   LogOut,
   MessageSquareText, MoreHorizontal, PanelLeftClose, Plus, RefreshCw, Search,
-  Pencil, Settings, Sparkles, TestTube2, Users, X,
+  Pencil, Settings, Sparkles, TestTube2, Trash2, Users, X,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -68,10 +68,11 @@ export default function Home() {
     setLoading(true);
     setError(null);
     try {
-      const activeProjects = await bridgeFlowApi.listProjects();
-      setProjects(activeProjects);
-      const activeProject = activeProjects.find((item) => item.id === preferredProjectId)
-        ?? activeProjects[0]
+      const visibleProjects = await bridgeFlowApi.listProjects(true);
+      setProjects(visibleProjects);
+      const activeProject = visibleProjects.find((item) => item.id === preferredProjectId)
+        ?? visibleProjects.find((item) => item.status === "ACTIVE")
+        ?? visibleProjects[0]
         ?? null;
       setProject(activeProject);
       if (!activeProject) { setRequirements([]); setSelected(null); return; }
@@ -177,6 +178,23 @@ export default function Home() {
       await load();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Không thể archive project.");
+    } finally { setSaving(false); }
+  }
+
+  async function deleteCurrentProject() {
+    if (!project || project.status !== "ARCHIVED") return;
+    const confirmationCode = window.prompt(
+      `Xóa vĩnh viễn toàn bộ dữ liệu và file của ${project.code}. Nhập đúng mã project để xác nhận:`,
+    );
+    if (confirmationCode === null) return;
+    setSaving(true);
+    setError(null);
+    try {
+      await bridgeFlowApi.deleteProject(project.id, confirmationCode);
+      setProjectMenuOpen(false);
+      await load();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Không thể xóa project.");
     } finally { setSaving(false); }
   }
 
@@ -321,9 +339,9 @@ export default function Home() {
               <ChevronDown className={`size-4 text-slate-400 transition ${projectMenuOpen ? "rotate-180" : ""}`} />
             </button>
             {projectMenuOpen && <div className="absolute left-0 right-0 top-[calc(100%+8px)] z-40 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl">
-              <div className="max-h-64 overflow-y-auto p-1.5">{projects.map((item) => <button key={item.id} onClick={() => void selectProject(item)} className={`flex w-full items-center gap-3 rounded-lg p-2.5 text-left ${item.id === project?.id ? "bg-[#edf4fa]" : "hover:bg-slate-50"}`}><div className="grid size-8 shrink-0 place-items-center rounded-lg bg-slate-100 text-[11px] font-bold text-slate-600">{item.code.slice(0, 2)}</div><div className="min-w-0"><p className="truncate text-sm font-medium">{item.name}</p><p className="truncate text-xs text-slate-400">{item.code} · {item.requirementCount} requirements</p></div></button>)}</div>
+              <div className="max-h-64 overflow-y-auto p-1.5">{projects.map((item) => <button key={item.id} onClick={() => void selectProject(item)} className={`flex w-full items-center gap-3 rounded-lg p-2.5 text-left ${item.id === project?.id ? "bg-[#edf4fa]" : "hover:bg-slate-50"}`}><div className="grid size-8 shrink-0 place-items-center rounded-lg bg-slate-100 text-[11px] font-bold text-slate-600">{item.code.slice(0, 2)}</div><div className="min-w-0"><p className="truncate text-sm font-medium">{item.name}</p><p className="truncate text-xs text-slate-400">{item.code} · {item.requirementCount} requirements{item.status === "ARCHIVED" ? " · archived" : ""}</p></div></button>)}</div>
               <div className="grid grid-cols-2 gap-1 border-t border-slate-100 p-1.5"><Button variant="ghost" size="sm" onClick={() => { setProjectMenuOpen(false); setProjectEditor("create"); }}><Plus /> Tạo mới</Button><Button variant="ghost" size="sm" disabled={!canAdminProject} onClick={() => { setProjectMenuOpen(false); setProjectEditor("edit"); }}><Pencil /> Chỉnh sửa</Button></div>
-              {project && <div className="border-t border-slate-100 p-1.5"><Button variant="ghost" size="sm" disabled={saving || !canAdminProject} onClick={() => void archiveCurrentProject()} className="w-full justify-start text-red-600 hover:bg-red-50 hover:text-red-700"><Archive /> Archive project</Button></div>}
+              {project && <div className="border-t border-slate-100 p-1.5">{project.status === "ACTIVE" ? <Button variant="ghost" size="sm" disabled={saving || !canAdminProject} onClick={() => void archiveCurrentProject()} className="w-full justify-start text-red-600 hover:bg-red-50 hover:text-red-700"><Archive /> Archive project</Button> : <Button variant="ghost" size="sm" disabled={saving || !canAdminProject} onClick={() => void deleteCurrentProject()} className="w-full justify-start text-red-700 hover:bg-red-50 hover:text-red-800"><Trash2 /> Xóa vĩnh viễn</Button>}</div>}
             </div>}
           </div>
           <nav className="space-y-1">{nav.map(([Icon, label]) => { const isActive = (label === "Requirements" && activeView === "requirements") || (label === "Thuật ngữ" && activeView === "glossary") || (label === "Tài liệu" && activeView === "documents"); return <button key={label} onClick={() => { if (label === "Requirements") setActiveView("requirements"); if (label === "Thuật ngữ") setActiveView("glossary"); if (label === "Tài liệu") setActiveView("documents"); }} className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition ${isActive ? "bg-[#e7eff7] text-[#123a63]" : "text-slate-600 hover:bg-white"}`}><Icon className="size-[18px]" />{label}{label === "Requirements" && <span className="ml-auto rounded-md bg-white/80 px-1.5 py-0.5 text-[11px] text-slate-500">{requirements.length}</span>}</button>; })}</nav>

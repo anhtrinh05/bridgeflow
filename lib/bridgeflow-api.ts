@@ -228,13 +228,19 @@ export const bridgeFlowApi = {
     try { await request<void>("/auth/logout", { method: "POST" }); }
     finally { storeToken(null); }
   },
-  listProjects: () => request<Project[]>("/projects"),
+  listProjects: (includeArchived = false) =>
+    request<Project[]>(`/projects${includeArchived ? "?includeArchived=true" : ""}`),
   createProject: (body: CreateProjectRequest) =>
     request<Project>("/projects", { method: "POST", body: JSON.stringify(body) }),
   updateProject: (projectId: string, body: UpdateProjectRequest) =>
     request<Project>(`/projects/${projectId}`, { method: "PATCH", body: JSON.stringify(body) }),
   archiveProject: (projectId: string) =>
     request<Project>(`/projects/${projectId}/archive`, { method: "POST", body: "{}" }),
+  deleteProject: (projectId: string, confirmationCode: string) =>
+    request<void>(`/projects/${projectId}`, {
+      method: "DELETE",
+      body: JSON.stringify({ confirmationCode }),
+    }),
   listRequirements: (projectId: string, options: ListRequirementOptions = {}) => {
     const params = new URLSearchParams();
     if (options.status) params.set("status", options.status);

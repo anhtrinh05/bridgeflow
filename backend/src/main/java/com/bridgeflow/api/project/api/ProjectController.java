@@ -7,6 +7,7 @@ import java.util.UUID;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -16,6 +17,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.bridgeflow.api.project.api.ProjectModels.CreateProjectRequest;
+import com.bridgeflow.api.project.api.ProjectModels.DeleteProjectRequest;
 import com.bridgeflow.api.project.api.ProjectModels.ProjectResponse;
 import com.bridgeflow.api.project.api.ProjectModels.UpdateProjectRequest;
 import com.bridgeflow.api.project.application.ProjectService;
@@ -82,5 +84,17 @@ public class ProjectController {
         @PathVariable UUID projectId
     ) {
         return projectService.archive(user.id(), projectId);
+    }
+
+    @DeleteMapping("/{projectId}")
+    @Operation(operationId = "deleteProject", summary = "Permanently delete an archived project")
+    @ApiResponse(responseCode = "204", description = "Project and private document files deleted")
+    public ResponseEntity<Void> delete(
+        @AuthenticationPrincipal CurrentUser user,
+        @PathVariable UUID projectId,
+        @Valid @RequestBody DeleteProjectRequest request
+    ) {
+        projectService.delete(user.id(), projectId, request);
+        return ResponseEntity.noContent().build();
     }
 }

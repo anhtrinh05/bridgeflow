@@ -10,6 +10,7 @@ import java.nio.file.StandardCopyOption;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
+import java.util.Comparator;
 import java.util.Locale;
 import java.util.Set;
 import java.util.UUID;
@@ -81,6 +82,18 @@ public class LocalDocumentStorage {
             Files.deleteIfExists(resolve(storageKey));
         } catch (IOException ignored) {
             // Preserve the original database error; orphan cleanup can be retried operationally.
+        }
+    }
+
+    public void deleteProject(UUID projectId) {
+        var projectRoot = resolve(projectId.toString());
+        if (!Files.exists(projectRoot)) return;
+        try (var paths = Files.walk(projectRoot)) {
+            for (var path : paths.sorted(Comparator.reverseOrder()).toList()) {
+                Files.deleteIfExists(path);
+            }
+        } catch (IOException exception) {
+            throw new UncheckedIOException("Không thể xóa file của project " + projectId + ".", exception);
         }
     }
 
