@@ -343,4 +343,6 @@ export const bridgeFlowApi = {
   }),
   deleteRequirementRelation: (requirementId: string, relationId: string) =>
     request<void>(`/requirements/${requirementId}/relations/${relationId}`, { method: "DELETE" }),
+  downloadProjectRequirements: (projectId: string, format: "csv" | "md") =>
+    requestBlob(`/projects/${projectId}/exports/requirements.${format}`),
 };

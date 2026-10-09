@@ -21,6 +21,7 @@ AI-assisted requirements workspace for Japanese–Vietnamese software teams.
 - Revision-level traceability across source documents, Q&A, criteria, and test cases
 - Deterministic change-impact reports with explicit artifact revalidation actions
 - Audited cross-requirement relations with incoming/outgoing traceability
+- Audited UTF-8 CSV and Markdown project exports
 - Synthetic Japanese–Vietnamese demo workspace (no customer data)
 - Responsive frontend with loading, error, and empty states
 
@@ -100,4 +101,5 @@ See [backend/README.md](backend/README.md) for details and optional tool paths.
 3. Test-case generation from approved criteria (implemented)
 4. Requirement traceability and rule-based change-impact analysis (implemented)
 5. Cross-requirement relations (implemented)
-6. Exports, production observability, and operational hardening
+6. Bilingual requirement exports (implemented)
+7. Production observability and operational hardening

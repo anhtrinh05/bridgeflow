@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
-import { AlertCircle, FileSearch, GitCompareArrows, Link2, LoaderCircle, Trash2 } from "lucide-react";
+import { AlertCircle, Download, FileSearch, GitCompareArrows, Link2, LoaderCircle, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -78,9 +78,23 @@ export function RequirementTraceabilityWorkspace({ requirement, revision }: {
     finally { setSaving(false); }
   }
 
+  async function exportProject(format: "csv" | "md") {
+    setSaving(true); setError(null);
+    try {
+      const result = await bridgeFlowApi.downloadProjectRequirements(requirement.projectId, format);
+      const url = URL.createObjectURL(result.blob);
+      const anchor = document.createElement("a");
+      anchor.href = url; anchor.download = result.filename; anchor.click();
+      URL.revokeObjectURL(url);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Không thể export requirements.");
+    } finally { setSaving(false); }
+  }
+
   if (loading) return <div className="grid min-h-44 place-items-center text-sm text-slate-500"><LoaderCircle className="mr-2 inline size-4 animate-spin" />Đang phân tích impact…</div>;
   return <div className="space-y-5">
     {error && <div className="flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700"><AlertCircle className="mt-0.5 size-4 shrink-0" />{error}</div>}
+    <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-blue-200 bg-blue-50 p-4"><div><p className="font-semibold text-blue-950">Export requirements song ngữ</p><p className="mt-1 text-xs text-blue-700">Xuất latest revision, artifact đã duyệt và outgoing relations của toàn project.</p></div><div className="flex gap-2"><Button variant="outline" size="sm" disabled={saving} onClick={() => void exportProject("csv")}><Download />CSV</Button><Button variant="outline" size="sm" disabled={saving} onClick={() => void exportProject("md")}><Download />Markdown</Button></div></div>
     <section className="rounded-xl border border-slate-200 p-4">
       <div className="flex items-center gap-2"><Link2 className="size-4 text-violet-600" /><h3 className="font-semibold">Quan hệ với requirements khác</h3><Badge variant="outline">{traceability?.relations.length ?? 0}</Badge></div>
       {canManage && candidates.length > 0 && <form onSubmit={createRelation} className="mt-3 grid gap-2 sm:grid-cols-[1fr_1fr_auto]"><select required name="targetRequirementId" defaultValue="" className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"><option value="" disabled>Chọn requirement</option>{candidates.map((candidate) => <option key={candidate.id} value={candidate.id}>{candidate.displayKey}</option>)}</select><select required name="relationType" defaultValue="DEPENDS_ON" className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm">{relationTypes.map((type) => <option key={type} value={type}>{type}</option>)}</select><Button disabled={saving} className="bg-violet-700 hover:bg-violet-800">{saving && <LoaderCircle className="animate-spin" />}Thêm relation</Button></form>}

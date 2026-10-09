@@ -1,6 +1,7 @@
 package com.bridgeflow.api.requirement.persistence;
 
 import java.util.Optional;
+import java.util.List;
 import java.util.UUID;
 
 import org.springframework.data.domain.Page;
@@ -69,4 +70,8 @@ public interface RequirementRepository extends JpaRepository<Requirement, UUID> 
     long countByProjectId(UUID projectId);
 
     long countByProjectIdAndStatusNot(UUID projectId, RequirementStatus status);
+
+    List<Requirement> findAllByProjectIdAndStatusNotOrderByDisplayKeyAsc(
+        UUID projectId, RequirementStatus status
+    );
 }

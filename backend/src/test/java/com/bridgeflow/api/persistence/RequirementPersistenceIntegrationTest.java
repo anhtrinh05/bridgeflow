@@ -239,6 +239,9 @@ class RequirementPersistenceIntegrationTest {
         assertThat(contract.required("paths")
             .required("/api/v1/requirements/{requirementId}/relations")
             .required("post").required("operationId").asText()).isEqualTo("createRequirementRelation");
+        assertThat(contract.required("paths")
+            .required("/api/v1/projects/{projectId}/exports/requirements.csv")
+            .required("get").required("operationId").asText()).isEqualTo("exportRequirementsCsv");
         var schemas = contract.required("components").required("schemas");
         assertThat(schemas.has("RequirementResponse")).isTrue();
         assertThat(schemas.has("RequirementAnalysisResponse")).isTrue();
@@ -805,6 +808,49 @@ class RequirementPersistenceIntegrationTest {
         assertThat(auditEventRepository.findAllByProjectIdOrderByOccurredAtDesc(UUID.fromString(projectId)))
             .extracting(event -> event.getAction())
             .contains(AuditAction.REQUIREMENT_RELATION_CREATED, AuditAction.REQUIREMENT_RELATION_DELETED);
+    }
+
+    @Test
+    void exportsAuditedBilingualRequirementsAsCsvAndMarkdown() throws Exception {
+        loginTestUser();
+        var suffix = UUID.randomUUID().toString().substring(0, 8).toUpperCase();
+        var project = sendJson("POST", "/api/v1/projects", """
+            {"code":"EXPORT-%s","name":"Bilingual Export Project","customerName":null}
+            """.formatted(suffix), 201);
+        var projectId = project.required("id").asText();
+        var first = sendJson("POST", "/api/v1/projects/" + projectId + "/requirements", """
+            {"displayKey":"REQ-EXPORT-A","japaneseText":"利用者は「注文,履歴」を確認できる。","vietnameseText":"Người dùng xem lịch sử \\\"đơn hàng\\\"."}
+            """, 201);
+        var second = sendJson("POST", "/api/v1/projects/" + projectId + "/requirements", """
+            {"displayKey":"REQ-EXPORT-B","japaneseText":"注文を登録する。","vietnameseText":"Tạo đơn hàng."}
+            """, 201);
+        var firstId = first.required("id").asText();
+        var secondId = second.required("id").asText();
+        sendJson("POST", "/api/v1/requirements/" + firstId + "/relations", """
+            {"targetRequirementId":"%s","relationType":"DEPENDS_ON"}
+            """.formatted(secondId), 201);
+
+        var csvBytes = download("/api/v1/projects/" + projectId + "/exports/requirements.csv");
+        assertThat(csvBytes).startsWith((byte) 0xEF, (byte) 0xBB, (byte) 0xBF);
+        var csv = new String(csvBytes, StandardCharsets.UTF_8);
+        assertThat(csv).contains(
+            "Display Key,Status,Revision", "REQ-EXPORT-A", "REQ-EXPORT-B",
+            "利用者は「注文,履歴」を確認できる。", "Người dùng xem lịch sử \"\"đơn hàng\"\".",
+            "DEPENDS_ON → REQ-EXPORT-B", "\r\n"
+        );
+
+        var markdown = new String(
+            download("/api/v1/projects/" + projectId + "/exports/requirements.md"),
+            StandardCharsets.UTF_8
+        );
+        assertThat(markdown).contains(
+            "# Bilingual Export Project — Requirements",
+            "## REQ-EXPORT-A", "### 日本語", "### Tiếng Việt",
+            "Relations: DEPENDS_ON → REQ-EXPORT-B"
+        );
+        assertThat(auditEventRepository.findAllByProjectIdOrderByOccurredAtDesc(UUID.fromString(projectId)))
+            .extracting(event -> event.getAction())
+            .contains(AuditAction.PROJECT_REQUIREMENTS_EXPORTED);
     }
 
     private String analysisPath(String requirementId, String revisionId) {

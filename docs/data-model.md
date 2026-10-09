@@ -71,6 +71,14 @@ in the same project. A unique constraint prevents duplicate typed edges; the API
 returns each edge as incoming or outgoing from the requirement being inspected.
 Only `ADMIN` and `BRSE` members mutate relations, and creation/deletion is audited.
 
+## Export projection
+
+Project exports are read-time projections rather than stored files. Archived
+requirements are excluded. Each row or section uses the latest revision and
+derives approved acceptance-criterion/test-case counts plus outgoing relations
+from persisted foreign keys. The generated payload is not retained, while the
+download action is recorded in the project audit trail.
+
 ## Version matching workflow
 
 1. Extract candidate requirements from the new document version.

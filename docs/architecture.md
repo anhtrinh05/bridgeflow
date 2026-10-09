@@ -55,6 +55,7 @@ Spring Boot API
 8. Traceability views resolve every artifact back to its immutable revision and source.
 9. A deterministic impact report identifies prior artifacts that need revalidation after a change.
 10. Human-managed relations connect dependencies, replacements, splits, merges, and duplicates across requirements in one project.
+11. Authorized exports render the persisted graph as UTF-8 CSV or review-friendly Markdown and record an audit event.
 
 The AI increments execute bounded extraction and per-revision analysis synchronously while persisting
 the job lifecycle (`PENDING`, `RUNNING`, `COMPLETED`, or `FAILED`). This keeps the
@@ -77,6 +78,7 @@ its source criterion ID and remains a draft until an authorized human reviews it
 - Test-case generation from approved acceptance criteria
 - Revision traceability and explainable change-impact reports
 - Audited cross-requirement relations
+- Audited bilingual CSV and Markdown exports
 - Basic exports and audit history
 
 ## Deferred scope
