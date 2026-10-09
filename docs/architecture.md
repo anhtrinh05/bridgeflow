@@ -79,6 +79,7 @@ its source criterion ID and remains a draft until an authorized human reviews it
 - Revision traceability and explainable change-impact reports
 - Audited cross-requirement relations
 - Audited bilingual CSV and Markdown exports
+- Correlation IDs, structured production logs, bounded-cardinality HTTP metrics, and health probes
 - Basic exports and audit history
 
 ## Deferred scope

@@ -147,6 +147,12 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8080/api/v1
 const TOKEN_KEY = "bridgeflow.access-token";
 let accessToken: string | null = null;
 
+function newCorrelationId() {
+  return typeof crypto !== "undefined" && "randomUUID" in crypto
+    ? crypto.randomUUID()
+    : `web-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
 function currentToken() {
   if (accessToken) return accessToken;
   if (typeof window === "undefined") return null;
@@ -168,6 +174,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     ...init,
     headers: {
       ...(!isFormData ? { "Content-Type": "application/json" } : {}),
+      "X-Correlation-ID": newCorrelationId(),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...init?.headers,
     },
@@ -175,7 +182,9 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   if (!response.ok) {
     if (response.status === 401 && path !== "/auth/login") storeToken(null);
     const body = await response.json().catch(() => null) as { message?: string } | null;
-    throw new Error(body?.message ?? `API trả về lỗi ${response.status}.`);
+    const correlationId = response.headers.get("X-Correlation-ID");
+    const detail = body?.message ?? `API trả về lỗi ${response.status}.`;
+    throw new Error(correlationId ? `${detail} (mã tra cứu: ${correlationId})` : detail);
   }
   if (response.status === 204) return undefined as T;
   return response.json() as Promise<T>;
@@ -184,12 +193,17 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 async function requestBlob(path: string) {
   const token = currentToken();
   const response = await fetch(`${API_URL}${path}`, {
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    headers: {
+      "X-Correlation-ID": newCorrelationId(),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
   });
   if (!response.ok) {
     if (response.status === 401) storeToken(null);
     const body = await response.json().catch(() => null) as { message?: string } | null;
-    throw new Error(body?.message ?? `API trả về lỗi ${response.status}.`);
+    const correlationId = response.headers.get("X-Correlation-ID");
+    const detail = body?.message ?? `API trả về lỗi ${response.status}.`;
+    throw new Error(correlationId ? `${detail} (mã tra cứu: ${correlationId})` : detail);
   }
   const disposition = response.headers.get("Content-Disposition") ?? "";
   const encoded = disposition.match(/filename\*=UTF-8''([^;]+)/i)?.[1];

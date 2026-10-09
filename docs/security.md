@@ -72,6 +72,13 @@ records an explicit review decision; provider output cannot confirm a requiremen
 - Give every request and AI job a correlation ID.
 - Keep security and audit logs separate from user-visible activity history.
 
+The request observability filter validates `X-Correlation-ID`, generates a UUID
+when needed, returns it on every response, and clears MDC after the request.
+Access logs deliberately exclude query strings, headers, bodies, tokens, and
+document text. HTTP metrics use Spring route templates (or UUID-redacted fallback
+paths) so customer/resource identifiers never become metric labels. Prometheus
+and detailed metric endpoints require authentication; only health probes are public.
+
 ## Public portfolio policy
 
 - Use fictional company and person names.

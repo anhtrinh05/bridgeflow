@@ -1,0 +1,9 @@
+logging:
+  structured:
+    format:
+      console: logstash
+
+management:
+  endpoint:
+    health:
+      show-details: never

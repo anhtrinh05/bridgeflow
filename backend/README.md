@@ -85,6 +85,19 @@ volume and add malware scanning before ingestion.
 Interactive documentation is available at `/swagger-ui.html`, and the machine-readable
 OpenAPI contract used by the frontend generator is available at `/v3/api-docs`.
 
+## Observability
+
+Every response includes `X-Correlation-ID`. A safe caller-supplied value is
+preserved; missing or invalid values are replaced with a UUID. The same ID is
+placed in SLF4J MDC, while request logs contain only method, normalized route
+template, status, and duration—never body, query values, or authorization data.
+The `prod` profile emits Logstash-compatible structured JSON logs.
+
+Actuator exposes public liveness/readiness probes. Authenticated users can read
+`/actuator/metrics` and `/actuator/prometheus`; metrics use normalized route
+patterns to avoid UUID-driven cardinality. Frontend API errors show the returned
+correlation ID as a support lookup code.
+
 ## AI requirement extraction
 
 `ADMIN` and `BRSE` members can run glossary-aware requirement extraction for an
@@ -170,6 +183,8 @@ documents or NDA-protected data.
 mvn test
 curl http://127.0.0.1:8080/api/v1/health
 curl http://127.0.0.1:8080/actuator/health
+curl http://127.0.0.1:8080/actuator/health/liveness
+curl http://127.0.0.1:8080/actuator/health/readiness
 ```
 
 The integration test starts an isolated PostgreSQL container and verifies the

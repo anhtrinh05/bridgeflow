@@ -210,6 +210,47 @@ class RequirementPersistenceIntegrationTest {
     }
 
     @Test
+    void propagatesCorrelationIdsAndPublishesOperationalEndpoints() throws Exception {
+        var baseUrl = "http://127.0.0.1:" + environment.getRequiredProperty("local.server.port");
+        try (var client = HttpClient.newHttpClient()) {
+            var suppliedCorrelationId = "bridgeflow-integration-correlation";
+            var health = client.send(HttpRequest.newBuilder(URI.create(baseUrl + "/api/v1/health"))
+                .timeout(Duration.ofSeconds(10))
+                .header("X-Correlation-ID", suppliedCorrelationId)
+                .GET().build(), HttpResponse.BodyHandlers.ofString());
+            assertThat(health.statusCode()).isEqualTo(200);
+            assertThat(health.headers().firstValue("X-Correlation-ID")).contains(suppliedCorrelationId);
+
+            for (var path : new String[] {"/actuator/health/liveness", "/actuator/health/readiness"}) {
+                var probe = client.send(HttpRequest.newBuilder(URI.create(baseUrl + path))
+                    .timeout(Duration.ofSeconds(10)).GET().build(), HttpResponse.BodyHandlers.ofString());
+                assertThat(probe.statusCode()).isEqualTo(200);
+                assertThat(probe.body()).contains("\"status\":\"UP\"");
+                assertThat(probe.headers().firstValue("X-Correlation-ID")).isPresent();
+            }
+
+            var sanitized = client.send(HttpRequest.newBuilder(URI.create(baseUrl + "/api/v1/health"))
+                .timeout(Duration.ofSeconds(10))
+                .header("X-Correlation-ID", "not allowed spaces")
+                .GET().build(), HttpResponse.BodyHandlers.ofString());
+            var generated = sanitized.headers().firstValue("X-Correlation-ID").orElseThrow();
+            assertThat(UUID.fromString(generated)).isNotNull();
+
+            loginTestUser();
+            var metrics = sendJson("GET", "/actuator/metrics/bridgeflow.http.requests", null, 200);
+            assertThat(metrics.required("name").asText()).isEqualTo("bridgeflow.http.requests");
+            assertThat(metrics.required("measurements").toString()).contains("COUNT", "TOTAL_TIME");
+
+            var prometheus = client.send(HttpRequest.newBuilder(URI.create(baseUrl + "/actuator/prometheus"))
+                .timeout(Duration.ofSeconds(10))
+                .header("Authorization", "Bearer " + accessToken)
+                .GET().build(), HttpResponse.BodyHandlers.ofString());
+            assertThat(prometheus.statusCode()).isEqualTo(200);
+            assertThat(prometheus.body()).contains("bridgeflow_http_requests_seconds_count");
+        }
+    }
+
+    @Test
     void publishesTheOpenApiContract() throws Exception {
         var contract = sendJson("GET", "/v3/api-docs", null, 200);
 

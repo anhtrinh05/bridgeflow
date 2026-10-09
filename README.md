@@ -22,6 +22,7 @@ AI-assisted requirements workspace for Japanese–Vietnamese software teams.
 - Deterministic change-impact reports with explicit artifact revalidation actions
 - Audited cross-requirement relations with incoming/outgoing traceability
 - Audited UTF-8 CSV and Markdown project exports
+- Correlation-aware structured logs, Prometheus metrics, and liveness/readiness probes
 - Synthetic Japanese–Vietnamese demo workspace (no customer data)
 - Responsive frontend with loading, error, and empty states
 
@@ -56,8 +57,9 @@ cd backend
 mvn spring-boot:run -Dspring-boot.run.profiles=dev
 ```
 
-The API runs at `http://127.0.0.1:8080`. Check liveness at
-`/api/v1/health` and database readiness at `/actuator/health`.
+The API runs at `http://127.0.0.1:8080`. Check service health at
+`/api/v1/health`, liveness at `/actuator/health/liveness`, and database-backed
+readiness at `/actuator/health/readiness`.
 
 The `dev` profile creates a synthetic BrSE account for local use:
 
@@ -102,4 +104,5 @@ See [backend/README.md](backend/README.md) for details and optional tool paths.
 4. Requirement traceability and rule-based change-impact analysis (implemented)
 5. Cross-requirement relations (implemented)
 6. Bilingual requirement exports (implemented)
-7. Production observability and operational hardening
+7. Production observability foundation (implemented)
+8. Deployment hardening, retention, and backup/restore operations
