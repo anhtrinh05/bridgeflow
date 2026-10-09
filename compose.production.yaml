@@ -1,0 +1,79 @@
+name: bridgeflow
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-bridgeflow}
+      POSTGRES_USER: ${POSTGRES_USER:-bridgeflow}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in the production env file}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    volumes:
+      - bridgeflow-postgres:/var/lib/postgresql/data
+    networks:
+      - database
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-bridgeflow}
+      DB_USERNAME: ${POSTGRES_USER:-bridgeflow}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in the production env file}
+      BRIDGEFLOW_STORAGE_ROOT: /var/lib/bridgeflow/documents
+      BRIDGEFLOW_STORAGE_MAX_BYTES: ${BRIDGEFLOW_STORAGE_MAX_BYTES:-10485760}
+      BRIDGEFLOW_CORS_ALLOWED_ORIGINS: ${BRIDGEFLOW_CORS_ALLOWED_ORIGINS:?Set the HTTPS frontend origin}
+      BRIDGEFLOW_RETENTION_ENABLED: ${BRIDGEFLOW_RETENTION_ENABLED:-true}
+      BRIDGEFLOW_RETENTION_ARCHIVED_PROJECT_DAYS: ${BRIDGEFLOW_RETENTION_ARCHIVED_PROJECT_DAYS:-365}
+      BRIDGEFLOW_RETENTION_CRON: ${BRIDGEFLOW_RETENTION_CRON:-0 30 2 * * *}
+      BRIDGEFLOW_AI_PROVIDER: ${BRIDGEFLOW_AI_PROVIDER:-disabled}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-6-astra}
+      BRIDGEFLOW_AI_REDACT_TERMS: ${BRIDGEFLOW_AI_REDACT_TERMS:-}
+      BRIDGEFLOW_AI_MAX_INPUT_CHARACTERS: ${BRIDGEFLOW_AI_MAX_INPUT_CHARACTERS:-60000}
+      BRIDGEFLOW_AI_MAX_CANDIDATES: ${BRIDGEFLOW_AI_MAX_CANDIDATES:-25}
+      BRIDGEFLOW_AI_MAX_QUESTIONS: ${BRIDGEFLOW_AI_MAX_QUESTIONS:-8}
+      BRIDGEFLOW_AI_MAX_CRITERIA: ${BRIDGEFLOW_AI_MAX_CRITERIA:-12}
+      BRIDGEFLOW_AI_MAX_TEST_CASES: ${BRIDGEFLOW_AI_MAX_TEST_CASES:-20}
+      JAVA_TOOL_OPTIONS: ${JAVA_TOOL_OPTIONS:--XX:MaxRAMPercentage=75.0 -Djava.security.egd=file:/dev/urandom}
+    ports:
+      - "${BRIDGEFLOW_BIND_ADDRESS:-127.0.0.1}:${BRIDGEFLOW_HTTP_PORT:-8080}:8080"
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://127.0.0.1:8080/actuator/health/readiness"]
+      interval: 15s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=256m
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - bridgeflow-documents:/var/lib/bridgeflow/documents
+    networks:
+      - database
+      - egress
+
+volumes:
+  bridgeflow-postgres:
+  bridgeflow-documents:
+
+networks:
+  database:
+    internal: true
+  egress:
