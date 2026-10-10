@@ -1,0 +1,124 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend (Java 21 / PostgreSQL 17)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: bridgeflow_test
+          POSTGRES_USER: bridgeflow
+          POSTGRES_PASSWORD: bridgeflow-ci-only
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U bridgeflow -d bridgeflow_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      BRIDGEFLOW_TEST_DB_URL: jdbc:postgresql://127.0.0.1:5432/bridgeflow_test
+      BRIDGEFLOW_TEST_DB_USERNAME: bridgeflow
+      BRIDGEFLOW_TEST_DB_PASSWORD: bridgeflow-ci-only
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Java
+        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+          cache-dependency-path: backend/pom.xml
+
+      - name: Verify backend
+        run: mvn --batch-mode --no-transfer-progress -f backend/pom.xml clean verify
+
+      - name: Require executed tests with zero skipped
+        shell: python
+        run: |
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+
+          reports = sorted(Path("backend/target/surefire-reports").glob("TEST-*.xml"))
+          if not reports:
+              raise SystemExit("No Surefire XML reports were produced.")
+
+          totals = {key: 0 for key in ("tests", "failures", "errors", "skipped")}
+          for report in reports:
+              suite = ET.parse(report).getroot()
+              for key in totals:
+                  totals[key] += int(suite.attrib.get(key, "0"))
+
+          print("Surefire totals: " + ", ".join(f"{key}={value}" for key, value in totals.items()))
+          if totals["tests"] == 0 or any(totals[key] != 0 for key in ("failures", "errors", "skipped")):
+              raise SystemExit("Backend tests must execute with zero failures, errors, and skipped tests.")
+
+  frontend:
+    name: Frontend and production configuration
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22.13.0
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install locked dependencies
+        run: npm run install:ci
+
+      - name: Lint frontend
+        run: npm run lint
+
+      - name: Type-check frontend
+        run: npm exec tsc -- --noEmit
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: Validate production configuration
+        run: |
+          npm run ops:validate
+          docker compose --env-file .env.production.example -f compose.production.yaml config --quiet
+
+      - name: Parse PowerShell operations scripts
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Get-ChildItem -LiteralPath scripts -Filter '*.ps1' | ForEach-Object {
+              $tokens = $null
+              $errors = $null
+              [System.Management.Automation.Language.Parser]::ParseFile(
+                  $_.FullName, [ref]$tokens, [ref]$errors
+              ) | Out-Null
+              if ($errors.Count -gt 0) {
+                  throw "PowerShell syntax validation failed for $($_.Name): $($errors[0].Message)"
+              }
+          }

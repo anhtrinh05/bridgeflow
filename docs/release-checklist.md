@@ -1,5 +1,6 @@
 # Release and Security Checklist
 
+- [ ] The GitHub Actions `CI` workflow passed on the exact commit being released.
 - [ ] `scripts\verify-release.cmd` reports `RELEASE VERIFICATION PASSED`.
 - [ ] Flyway reaches the expected version and every integration test passes with
       zero failures, errors, and skipped tests.

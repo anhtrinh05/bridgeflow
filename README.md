@@ -1,5 +1,7 @@
 # BridgeFlow
 
+[![CI](https://github.com/anhtrinh05/bridgeflow/actions/workflows/ci.yml/badge.svg)](https://github.com/anhtrinh05/bridgeflow/actions/workflows/ci.yml)
+
 AI-assisted requirements workspace for Japanese–Vietnamese software teams.
 
 ## Current product slice
@@ -130,4 +132,4 @@ never enables the development demo account.
    - 8A. Local production-stack smoke verification (verified)
    - 8B. Database/document backup and restore runtime drill (verified)
    - 8C. Secure initial production-user bootstrap (implemented)
-   - 8D. GitHub Actions continuous integration (planned)
+   - 8D. GitHub Actions continuous integration (implemented)
