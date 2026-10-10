@@ -20,10 +20,12 @@ Demo and evaluation environments must use synthetic documents only. Real custome
 - TLS for every external connection.
 - Server-side authorization on every project resource.
 - Object keys that cannot be guessed from filenames.
-- Short-lived download links for private documents.
-- Encryption at rest provided by the selected storage services.
+- Authenticated, project-authorized download endpoints for private documents.
+- Encryption at rest is a deployment responsibility of the selected database,
+  volume, and off-host backup providers; the repository does not implement or
+  attest storage-layer encryption itself.
 - Audit events for uploads, downloads, AI processing, approvals, and deletion.
-- File type, size, and malware validation before processing.
+- File type, size, and basic content-signature validation before processing.
 - Secrets supplied through runtime configuration, never source control.
 - Configurable retention and complete project deletion.
 

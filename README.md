@@ -31,7 +31,7 @@ AI-assisted requirements workspace for Japanese–Vietnamese software teams.
 ## Repository layout
 
 ```text
-app/        Next.js frontend
+app/        React App Router source compiled by Vinext/Vite
 components/ shared frontend components
 backend/    Spring Boot REST API
 frontend/   production frontend image and Node bundle adapter
@@ -148,25 +148,20 @@ never enables the development demo account.
 
 ## Offline AI quality and safety evaluation
 
-BridgeFlow includes a deterministic, zero-cost offline evaluation suite that
-benchmarks the AI pipeline across 12 capabilities using synthetic
-Japanese–Vietnamese specifications. It enforces safety invariants (prompt
-redaction, human-in-the-loop draft status, idempotency) and measures glossary
-adherence, field coverage, and modeled token costs without calling paid APIs:
+BridgeFlow includes a deterministic, zero-cost offline evaluation suite for 12
+capabilities using synthetic Japanese–Vietnamese specifications. Production
+Java components provide extraction/redaction evidence, while named backend
+service and PostgreSQL integration tests prove failure isolation, idempotency,
+draft-only review, and traceability. No paid API is called.
 
-```bash
-npm run eval:ai:offline
-```
-
-On Windows, use the dedicated CLI scripts:
-
-```powershell
-.\scripts\evaluate-ai-offline.ps1
-```
+Run the self-contained Windows gate:
 
 ```cmd
 scripts\evaluate-ai-offline.cmd
 ```
+
+or `.\scripts\evaluate-ai-offline.ps1`. `npm run eval:ai:offline` only
+aggregates current Java/Surefire evidence after backend tests have run.
 
 The harness generates a machine-readable report at `target/ai-evaluation-report.json`.
 See [docs/ai-evaluation.md](docs/ai-evaluation.md) for methodology, corpus design,
@@ -176,7 +171,8 @@ and threshold definitions.
 
 - [Portfolio Case Study (EN / VI / JP summary)](docs/portfolio-case-study.md) — Comprehensive architecture, security, and human-in-the-loop AI governance.
 - [Vietnamese Demo Script (2–3 phút)](docs/demo-script-vi.md) — Pitching and live demo walkthrough for technical recruiters and clients.
-- [v1.0.0 Release Notes](docs/release-notes-v1.0.0.md) — Delivered capabilities, verification gates, and reproduction instructions.
+- [v1.0.0 Release Notes](docs/release-notes-v1.0.0.md) — Original release record.
+- [v1.0.1 Corrective Release Notes](docs/release-notes-v1.0.1.md) — Evidence and documentation corrections prepared after independent audit.
 - [Offline AI Quality & Safety Evaluation](docs/ai-evaluation.md) — Corpus methodology, capability benchmarks, and cost modeling.
 - [Workspace Overview Screenshot](docs/assets/screenshots/workspace-overview.png) — Synthetic bilingual requirements management interface.
 

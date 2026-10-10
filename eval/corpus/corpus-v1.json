@@ -6,6 +6,12 @@
   "metadata": {
     "targetLanguagePair": "ja-JP -> vi-VN",
     "providerEvaluated": "stub",
+    "costModel": {
+      "label": "illustrative-gpt-4o-mini-2024-rates",
+      "promptUsdPerMillionTokens": 0.15,
+      "completionUsdPerMillionTokens": 0.60,
+      "disclaimer": "Illustrative only; not a live quote or real-provider measurement."
+    },
     "supportedCapabilities": [
       "extraction",
       "glossary_adherence",
@@ -166,7 +172,8 @@
       "title": "Redundant Requirement Candidate Deduplication",
       "documentText": "同一の要件記述\n同一の要件記述\n異なる要件記述",
       "maxCandidates": 10,
-      "expectDistinctKeys": true
+      "expectDistinctKeys": true,
+      "expectedUniqueCandidates": 2
     },
     {
       "id": "HUMAN-001",

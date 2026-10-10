@@ -17,6 +17,7 @@ public class StubRequirementExtractionProvider implements RequirementExtractionP
         var lines = Arrays.stream(request.documentText().split("[\\r\\n]+"))
             .map(String::trim)
             .filter(line -> !line.isBlank())
+            .distinct()
             .limit(request.maxCandidates())
             .toList();
         for (var index = 0; index < lines.size(); index++) {

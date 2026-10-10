@@ -1,6 +1,6 @@
 # BridgeFlow Portfolio Case Study
 
-> **AI-Assisted Bilingual Requirements Workspace for Japanese–Vietnamese Delivery Teams**  
+> **AI-Assisted Bilingual Requirements Workspace for Japanese–Vietnamese Delivery Teams**
 > *Production-Ready Technical MVP with End-to-End Traceability, Strict Human-in-the-Loop AI Governance, and Zero-Cost On-Demand Demonstration.*
 
 ---
@@ -9,7 +9,7 @@
 
 BridgeFlow は、日本とベトナム間のオフショア・ハイブリッド開発における「仕様認識の齟齬」「用語の不統一」「変更影響の追跡困難」という長年の課題を解決する要件定義ワークスペースです。
 日本語仕様書から構造化された要件候補・受入条件・テストケースを自動抽出・翻訳しつつ、**AIの出力は常に「未承認ドラフト（DRAFT）」として厳格に管理**され、BrSE（ブリッジSE）による確認と承認を経て初めて正式な要件へと昇格します。
-システムは Docker Compose によるセキュアな単一オリジン構成（Caddy リバースプロキシ、Spring Boot 4、PostgreSQL 17、Next.js）を採用し、データ暗号化、監査ログ、バックアップ・リストア検証、および完全無料の Cloudflare Quick Tunnel によるオンデマンド・デモ検証をクリアしています。
+システムは Docker Compose によるセキュアな単一オリジン構成（Caddy リバースプロキシ、Spring Boot 4、PostgreSQL 17、Vinext/React）を採用し、通信の暗号化、監査ログ、バックアップ・リストア検証、および完全無料の Cloudflare Quick Tunnel によるオンデマンド・デモ検証を備えています。
 
 ---
 
@@ -37,8 +37,8 @@ Cross-border software engineering between Japanese clients and Vietnamese engine
   Maintains explicit Japanese–Vietnamese terminology mappings (e.g., 二要素認証 ↔ Xác thực hai yếu tố) enforced during synthesis and editing.
 - **Bidirectional Traceability & Change Impact Analysis**:
   Maintains immutable links from source document byte streams (`SHA-256`) → requirement revisions (`line:N` anchors) → acceptance criteria → test cases. When a requirement changes, a deterministic impact report pinpoints exactly which downstream artifacts require revalidation.
-- **Automated PII & Secret Redaction**:
-  A deterministic text scrubber redacts emails and configured confidential tokens before any AI processing or logging occurs.
+- **Email & Configured-Literal Redaction**:
+  A deterministic text scrubber redacts email addresses and explicitly configured confidential literals before AI processing. This is a bounded control, not a claim of general PII or secret detection.
 - **Zero Recurring Cost On-Demand Demo**:
   Includes a one-click Cloudflare Quick Tunnel stack enabling instant public HTTPS demonstration (`*.trycloudflare.com`) with zero cloud hosting bills, credit card requirements, or domain ownership costs.
 
@@ -60,7 +60,7 @@ graph TB
     end
 
     subgraph "Private Application Network"
-        Frontend["Frontend SPA / Next.js<br/>Node Adapter (Non-Root User)"]
+        Frontend["React App Router UI / Vinext<br/>Node Adapter (Non-Root User)"]
         Backend["Spring Boot 4.1.1 API<br/>Java 21 / Security / Domain Logic"]
     end
 
@@ -73,14 +73,14 @@ graph TB
     Tunnel -->|Private Loopback HTTP| Gateway
     Gateway -->|/| Frontend
     Gateway -->|/api/*| Backend
-    Backend -->|JDBC / SSL| Postgres
+    Backend -->|JDBC on private network| Postgres
     Backend -->|Filesystem Storage| DocStore
 ```
 
 ### Network Isolation & Hardening
 - **Zero Host Ports on Data Services**: Neither Spring Boot, PostgreSQL, nor frontend publish any host ports. Only the Caddy reverse proxy binds loopback (`127.0.0.1:8082:80` for demo).
 - **Least Privilege Execution**:
-  - `gateway`: Runs as non-root with dropped Linux capabilities (`cap_drop: [ALL]`).
+  - `gateway`: Uses a read-only root filesystem, drops all capabilities, and adds back only `NET_BIND_SERVICE` for ports 80/443. The Compose file does not claim a non-root Caddy process.
   - `backend`: Runs as unprivileged `bridgeflow` user (`UID 10001`).
   - `frontend`: Runs as unprivileged `node` user (`UID 1000`).
   - `cloudflared`: Runs as unprivileged user (`65532:65532`).
@@ -143,29 +143,29 @@ sequenceDiagram
 | **Authorization** | Project-scoped RBAC (`ADMIN`, `OPERATOR`, `MEMBER`, `VIEWER`) | Role boundary security tests in Spring Security |
 | **Audit Logging** | Append-only audit records for all project, requirement, and document actions | Audit trail assertions in database integration suite |
 | **Privacy / Redaction** | Regex-based email scrubbing and configured token redaction (`[REDACTED_EMAIL]`, `[REDACTED]`) | Corpus unit tests in `AiOfflineEvaluationTest` |
-| **Credentials Isolation** | Database passwords and JWT secrets loaded strictly from environment files | Automated secret scanner in CI release gate |
+| **Credentials Isolation** | Database passwords and provider keys come from ignored runtime environment files; bearer session tokens are stored only as SHA-256 hashes | Tracked secret-pattern scan in CI plus authentication integration tests |
 | **Bootstrap Guard** | One-shot initial user creation via `bootstrap-production-user.ps1`; second invocation strictly rejected | Dedicated unit test `ProductionUserBootstrapServiceTest` |
 
 ---
 
 ## 6. Offline AI Quality & Safety Benchmarks (Milestone 10A)
 
-BridgeFlow implements an automated, deterministic offline evaluation suite benchmarking **12 distinct capabilities** against synthetic Japanese–Vietnamese specifications without requiring paid API tokens:
+BridgeFlow implements an automated, deterministic offline evaluation suite for **12 distinct capabilities** against synthetic Japanese–Vietnamese specifications without requiring paid API tokens. Component scores come from production Java classes; pipeline invariants come from named passing service/PostgreSQL tests rather than simulated JavaScript constants.
 
-| Quality & Safety Metric | Target Threshold | Measured Score | Evaluation Outcome |
-| :--- | :---: | :---: | :---: |
-| **Safety & Redaction Pass Rate** | **100.0%** | **100.0%** | **PASSED** |
-| **Human Review Enforcement Rate** | **100.0%** | **100.0%** | **PASSED** |
-| **Retry & Idempotency Pass Rate** | **100.0%** | **100.0%** | **PASSED** |
-| **Traceability Completeness** | **100.0%** | **100.0%** | **PASSED** |
-| **Glossary Adherence Rate** | **100.0%** | **100.0%** | **PASSED** |
-| **Expected Field Coverage** | **>= 90.0%** | **100.0%** | **PASSED** |
-| **Invalid / Duplicate Artifact Rate** | **<= 5.0%** | **0.0%** | **PASSED** |
+| Quality & Safety Metric | Release threshold | Evidence source |
+| :--- | :---: | :--- |
+| **Safety & Redaction Pass Rate** | **100.0%** | Production redactor and service failure test |
+| **Human Review Enforcement Rate** | **100.0%** | PostgreSQL/API integration test |
+| **Retry & Idempotency Pass Rate** | **100.0%** | PostgreSQL/API integration test |
+| **Traceability Completeness** | **100.0%** | PostgreSQL/API integration test |
+| **Glossary Adherence Rate** | **100.0%** | Production stub provider |
+| **Expected Field Coverage** | **>= 90.0%** | Production stub provider |
+| **Invalid / Duplicate Artifact Rate** | **<= 5.0%** | Production stub provider |
 
 - **Evaluated Test Cases**: 16 cases in `eval/corpus/corpus-v1.json`.
-- **Harness Execution Time**: < 10ms wall-clock duration.
 - **Provider Spend**: **$0.000000** (using deterministic local stub provider).
-- **Modeled Cloud Cost**: ~$0.000710 USD for complete 16-case suite run.
+- **Report**: `target/ai-evaluation-report.json` records current measured scores and named evidence after the backend suite runs.
+- **Cost Boundary**: Any modeled cloud cost is an explicitly illustrative heuristic, not a live quote or real-provider measurement.
 
 ---
 
@@ -184,7 +184,7 @@ The operational toolset includes audited PowerShell runbooks:
 
 ## 8. Technical Stack Summary
 
-- **Frontend**: Next.js 16, React 19, TypeScript 5.9, Tailwind CSS 4, Radix UI, Lucide Icons, OpenAPI client generation.
+- **Frontend**: Vinext/Vite with React 19, TypeScript 5.9, Tailwind CSS 4, Radix UI, Lucide Icons, and OpenAPI client generation.
 - **Backend**: Spring Boot 4.1.1, Java 21, Spring Security, Spring Data JPA, Apache Tika 3.2 (document parsing), Jackson Databind.
 - **Database & Persistence**: PostgreSQL 17, Flyway v12 database migrations.
 - **Edge Gateway & Networking**: Caddy 2.11.7-alpine, Cloudflare Tunnel (`cloudflared:2026.9.3`).
@@ -197,6 +197,6 @@ The operational toolset includes audited PowerShell runbooks:
 1. **On-Demand Demo Availability**:
    The `trycloudflare.com` tunnel URL is ephemeral and depends on the local machine and Docker daemon remaining active. It is intended for interactive portfolio demonstrations, not an always-on production SLA.
 2. **Provider Scope**:
-   Automated regression CI uses the deterministic `stub` provider to ensure reproducibility and zero recurring costs. Connecting OpenAI or Claude models requires setting API keys in `.env.production`.
+   Automated regression CI uses the deterministic `stub` provider to ensure reproducibility and zero recurring costs. The implemented external adapter is OpenAI; enabling it requires an approved key and budget in deployment secrets.
 3. **Single-Node Architecture**:
    The current technical MVP runs as a hardened single-node Compose deployment. Horizontal autoscaling and Redis distributed queues are deferred until traffic demands justify them.

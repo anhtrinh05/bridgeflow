@@ -9,6 +9,8 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Backend verification failed.' }
     & npm.cmd run lint
     if ($LASTEXITCODE -ne 0) { throw 'Frontend lint failed.' }
+    & npm.cmd run security:scan
+    if ($LASTEXITCODE -ne 0) { throw 'Tracked secret-pattern scan failed.' }
     & npm.cmd exec tsc -- --noEmit
     if ($LASTEXITCODE -ne 0) { throw 'Frontend type-check failed.' }
     & npm.cmd run build

@@ -649,6 +649,8 @@ class RequirementPersistenceIntegrationTest {
         assertThat(requirements.required("items")).hasSize(2);
         var requirementId = requirements.required("items").get(0).required("id").asText();
         var detail = sendJson("GET", "/api/v1/requirements/" + requirementId, null, 200);
+        assertThat(detail.required("status").asText()).isEqualTo("DRAFT");
+        assertThat(detail.required("latestRevision").required("reviewStatus").asText()).isEqualTo("DRAFT");
         assertThat(detail.required("latestRevision").required("documentVersionId").asText()).isEqualTo(versionId);
         assertThat(detail.required("latestRevision").required("sourceAnchor").asText()).startsWith("line:");
         assertThat(detail.toString()).contains("Lịch sử đơn hàng");

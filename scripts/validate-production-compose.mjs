@@ -80,8 +80,9 @@ requireCondition(backupScript.includes("databaseSha256"), "backup manifest must 
 requireCondition(restoreScript.includes("[ValidateSet('RESTORE')]"), "restore must require explicit confirmation");
 requireCondition(restoreScript.includes("Get-FileHash"), "restore must verify the database checksum");
 requireCondition(evalCorpus.version === "1.0.0", "offline AI evaluation corpus version 1.0.0 is required");
-requireCondition(evalScript.includes("StubRequirementExtractionProvider"), "offline AI evaluation harness must evaluate the deterministic provider");
-requireCondition(evalScript.includes("SensitiveTextRedactor"), "offline AI evaluation harness must evaluate sensitive text redaction");
+requireCondition(evalScript.includes("ai-component-evaluation.json"), "offline AI gate must consume production Java component evidence");
+requireCondition(evalScript.includes("requirePassingSurefireTest"), "offline AI gate must consume named backend integration evidence");
+requireCondition(!evalScript.includes("class StubRequirementExtractionProvider"), "offline AI gate must not reimplement the Java provider in JavaScript");
 
 console.log("Production Compose semantic validation passed.");
 if (process.platform === "win32") {

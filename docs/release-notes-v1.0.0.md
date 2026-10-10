@@ -1,7 +1,12 @@
 # BridgeFlow v1.0.0 Release Notes
 
-> **Initial Production-Ready Technical MVP Release**  
+> **Initial Production-Ready Technical MVP Release**
 > *Release Target: v1.0.0 | Commit: CI-verified main branch | License: Proprietary / Portfolio Showcase*
+
+> Historical note: the post-release evidence audit identified overstatements in
+> the original offline AI evaluator and portfolio claims. See
+> [v1.0.1 corrective release notes](release-notes-v1.0.1.md). The `v1.0.0` tag
+> remains immutable.
 
 ---
 

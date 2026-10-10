@@ -5,6 +5,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.UUID;
 
@@ -21,6 +23,8 @@ import com.bridgeflow.api.ai.provider.RequirementExtractionProvider.TestCaseRequ
 import com.bridgeflow.api.ai.provider.StubRequirementExtractionProvider;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 
 class AiOfflineEvaluationTest {
 
@@ -159,5 +163,217 @@ class AiOfflineEvaluationTest {
     void testProviderIdentity() {
         assertThat(provider.providerName()).isEqualTo("stub");
         assertThat(provider.modelName()).isEqualTo("deterministic-test-provider");
+    }
+
+    @Test
+    @DisplayName("Versioned corpus executes against production Java components")
+    void evaluatesComponentCasesAndWritesMachineEvidence() throws Exception {
+        var caseResults = objectMapper.createArrayNode();
+        var failures = new ArrayList<String>();
+        var glossary = corpusGlossary();
+        var componentCases = 0;
+        var expectedFields = 0;
+        var presentFields = 0;
+        var glossaryCases = 0;
+        var glossaryCasesPassed = 0;
+        var duplicateArtifacts = 0;
+        var generatedArtifacts = 0;
+
+        for (var testCase : corpus.withArray("cases")) {
+            var capability = testCase.required("capability").asText();
+            if (isIntegrationCapability(capability)) continue;
+            componentCases++;
+            var result = caseResults.addObject();
+            result.put("id", testCase.required("id").asText());
+            result.put("capability", capability);
+            var passed = true;
+            var reason = "";
+            try {
+                switch (capability) {
+                    case "extraction" -> {
+                        var extraction = provider.extract(new ExtractionRequest(
+                            UUID.randomUUID(), testCase.required("documentText").asText(), glossary,
+                            testCase.required("maxCandidates").asInt()
+                        ));
+                        assertThat(extraction.requirements()).hasSizeGreaterThanOrEqualTo(
+                            testCase.required("expectedMinCandidates").asInt()
+                        );
+                        assertThat(extraction.requirements().stream().map(item -> item.sourceAnchor()).toList())
+                            .containsExactlyElementsOf(textValues(testCase.withArray("expectedAnchors")));
+                        generatedArtifacts += extraction.requirements().size();
+                        for (var candidate : extraction.requirements()) {
+                            expectedFields += 3;
+                            if (candidate.japaneseText() != null && !candidate.japaneseText().isBlank()) presentFields++;
+                            if (candidate.vietnameseText() != null && !candidate.vietnameseText().isBlank()) presentFields++;
+                            if (candidate.sourceAnchor() != null && !candidate.sourceAnchor().isBlank()) presentFields++;
+                        }
+                    }
+                    case "glossary_adherence" -> {
+                        glossaryCases++;
+                        assertThat(testCase.required("documentText").asText()).contains(
+                            textValues(testCase.withArray("requiredTerms")).toArray(String[]::new)
+                        );
+                        var extraction = provider.extract(new ExtractionRequest(
+                            UUID.randomUUID(), testCase.required("documentText").asText(), glossary, 10
+                        ));
+                        var combined = String.join(" ", extraction.requirements().stream()
+                            .map(item -> item.vietnameseText()).toList());
+                        assertThat(combined).contains(
+                            textValues(testCase.withArray("expectedVietnameseTerms")).toArray(String[]::new)
+                        );
+                        glossaryCasesPassed++;
+                    }
+                    case "clarification_questions" -> {
+                        var analysis = provider.analyze(new AnalysisRequest(
+                            UUID.randomUUID(), testCase.required("japaneseText").asText(),
+                            testCase.required("vietnameseText").asText(), glossary, 8, 12
+                        ));
+                        assertThat(analysis.clarificationQuestions()).hasSizeGreaterThanOrEqualTo(
+                            testCase.required("expectedQuestionsMin").asInt()
+                        );
+                        if (testCase.path("expectedRationale").asBoolean(false)) {
+                            assertThat(analysis.clarificationQuestions())
+                                .allSatisfy(question -> assertThat(question.rationale()).isNotBlank());
+                        }
+                        expectedFields += analysis.clarificationQuestions().size() * 3;
+                        for (var question : analysis.clarificationQuestions()) {
+                            if (!question.japaneseText().isBlank()) presentFields++;
+                            if (!question.vietnameseText().isBlank()) presentFields++;
+                            if (!question.rationale().isBlank()) presentFields++;
+                        }
+                    }
+                    case "acceptance_criteria" -> {
+                        var analysis = provider.analyze(new AnalysisRequest(
+                            UUID.randomUUID(), testCase.required("japaneseText").asText(),
+                            testCase.required("vietnameseText").asText(), glossary, 8, 12
+                        ));
+                        assertThat(analysis.acceptanceCriteria()).hasSizeGreaterThanOrEqualTo(
+                            testCase.required("expectedCriteriaMin").asInt()
+                        ).allSatisfy(criterion -> {
+                            assertThat(criterion.japaneseText()).isNotBlank();
+                            assertThat(criterion.vietnameseText()).isNotBlank();
+                        });
+                        expectedFields += analysis.acceptanceCriteria().size() * 2;
+                        presentFields += analysis.acceptanceCriteria().size() * 2;
+                    }
+                    case "test_cases" -> {
+                        var criterion = testCase.required("criterion");
+                        var generated = provider.generateTestCases(new TestCaseRequest(
+                            UUID.randomUUID(), "評価対象", "Đối tượng đánh giá",
+                            List.of(new ApprovedCriterion(
+                                UUID.randomUUID(), criterion.required("japaneseText").asText(),
+                                criterion.required("vietnameseText").asText()
+                            )), glossary, 20
+                        ));
+                        assertThat(generated.testCases()).hasSize(1);
+                        var candidate = generated.testCases().getFirst();
+                        for (var field : textValues(testCase.withArray("expectedFields"))) {
+                            expectedFields++;
+                            var value = switch (field) {
+                                case "title" -> candidate.titleJapanese() + candidate.titleVietnamese();
+                                case "preconditions" -> candidate.preconditionsJapanese() + candidate.preconditionsVietnamese();
+                                case "steps" -> candidate.stepsJapanese() + candidate.stepsVietnamese();
+                                case "expectedResult" -> candidate.expectedResultJapanese() + candidate.expectedResultVietnamese();
+                                case "priority" -> candidate.priority();
+                                default -> throw new AssertionError("Unknown expected test-case field: " + field);
+                            };
+                            assertThat(value).isNotBlank();
+                            presentFields++;
+                        }
+                    }
+                    case "malformed_input" -> {
+                        var extraction = provider.extract(new ExtractionRequest(
+                            UUID.randomUUID(), testCase.required("documentText").asText(), glossary,
+                            testCase.required("maxCandidates").asInt()
+                        ));
+                        if (testCase.has("expectedCandidates")) {
+                            assertThat(extraction.requirements()).hasSize(testCase.required("expectedCandidates").asInt());
+                        }
+                        if (testCase.has("expectedMaxCandidates")) {
+                            assertThat(extraction.requirements().size())
+                                .isLessThanOrEqualTo(testCase.required("expectedMaxCandidates").asInt());
+                        }
+                    }
+                    case "sensitive_data_redaction" -> {
+                        var terms = testCase.has("redactTerm") ? testCase.required("redactTerm").asText() : "";
+                        var redacted = new SensitiveTextRedactor(terms)
+                            .redact(testCase.required("documentText").asText());
+                        assertThat(redacted)
+                            .doesNotContain(testCase.required("forbiddenRaw").asText())
+                            .contains(testCase.required("expectedRedacted").asText());
+                    }
+                    case "duplicate_prevention" -> {
+                        assertThat(testCase.required("expectDistinctKeys").asBoolean()).isTrue();
+                        var extraction = provider.extract(new ExtractionRequest(
+                            UUID.randomUUID(), testCase.required("documentText").asText(), glossary,
+                            testCase.required("maxCandidates").asInt()
+                        ));
+                        var normalized = extraction.requirements().stream()
+                            .map(item -> item.japaneseText().strip()).toList();
+                        var unique = new HashSet<>(normalized);
+                        duplicateArtifacts += normalized.size() - unique.size();
+                        generatedArtifacts += normalized.size();
+                        assertThat(unique).hasSameSizeAs(normalized);
+                        assertThat(normalized).hasSize(testCase.required("expectedUniqueCandidates").asInt());
+                    }
+                    default -> throw new AssertionError("Unknown component capability: " + capability);
+                }
+            } catch (AssertionError | RuntimeException exception) {
+                passed = false;
+                reason = exception.getMessage() == null ? exception.getClass().getSimpleName() : exception.getMessage();
+                failures.add(testCase.required("id").asText() + ": " + reason);
+            }
+            result.put("passed", passed);
+            result.put("reason", reason);
+        }
+
+        var report = objectMapper.createObjectNode();
+        report.put("corpusVersion", corpus.required("version").asText());
+        report.put("evidenceSource", "production-java-components");
+        report.put("providerClass", StubRequirementExtractionProvider.class.getName());
+        report.put("redactorClass", SensitiveTextRedactor.class.getName());
+        report.put("componentCases", componentCases);
+        report.put("passedComponentCases", componentCases - failures.size());
+        report.put("expectedFields", expectedFields);
+        report.put("presentFields", presentFields);
+        report.put("glossaryCases", glossaryCases);
+        report.put("glossaryCasesPassed", glossaryCasesPassed);
+        report.put("generatedArtifacts", generatedArtifacts);
+        report.put("duplicateArtifacts", duplicateArtifacts);
+        report.set("caseResults", caseResults);
+        var repoRoot = findRepoRoot();
+        Files.createDirectories(repoRoot.resolve("target"));
+        objectMapper.writerWithDefaultPrettyPrinter().writeValue(
+            repoRoot.resolve("target/ai-component-evaluation.json").toFile(), report
+        );
+
+        assertThat(componentCases).isEqualTo(12);
+        assertThat(failures).isEmpty();
+    }
+
+    private List<GlossaryEntry> corpusGlossary() {
+        var entries = new ArrayList<GlossaryEntry>();
+        for (var entry : corpus.withArray("glossary")) {
+            entries.add(new GlossaryEntry(
+                entry.required("japaneseTerm").asText(),
+                entry.required("vietnameseTerm").asText(),
+                entry.path("notes").asText("")
+            ));
+        }
+        return entries;
+    }
+
+    private List<String> textValues(ArrayNode values) {
+        var result = new ArrayList<String>();
+        values.forEach(value -> result.add(value.asText()));
+        return result;
+    }
+
+    private boolean isIntegrationCapability(String capability) {
+        return switch (capability) {
+            case "timeout_and_failure", "retry_and_idempotency",
+                "human_review_enforcement", "traceability_completeness" -> true;
+            default -> false;
+        };
     }
 }

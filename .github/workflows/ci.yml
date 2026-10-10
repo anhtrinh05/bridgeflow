@@ -74,6 +74,14 @@ jobs:
           if totals["tests"] == 0 or any(totals[key] != 0 for key in ("failures", "errors", "skipped")):
               raise SystemExit("Backend tests must execute with zero failures, errors, and skipped tests.")
 
+      - name: Set up Node.js for AI evidence aggregation
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22.13.0
+
+      - name: Aggregate production-backed offline AI evidence
+        run: node scripts/evaluate-ai-offline.mjs
+
   frontend:
     name: Frontend and production configuration
     runs-on: ubuntu-24.04
@@ -94,6 +102,9 @@ jobs:
       - name: Install locked dependencies
         run: npm run install:ci
 
+      - name: Scan tracked files for secret patterns
+        run: npm run security:scan
+
       - name: Lint frontend
         run: npm run lint
 
@@ -106,7 +117,6 @@ jobs:
       - name: Validate production configuration
         run: |
           npm run ops:validate
-          npm run eval:ai:offline
           docker compose --env-file .env.production.example -f compose.production.yaml config --quiet
           docker compose --env-file .env.production.local.example -f compose.production.yaml -f compose.production.local.yaml config --quiet
           docker compose --profile tunnel --env-file .env.demo.example -f compose.production.yaml -f compose.demo-tunnel.yaml config --quiet

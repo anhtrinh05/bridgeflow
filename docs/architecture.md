@@ -24,7 +24,7 @@ Caddy gateway
 
 ### Frontend
 
-- Next.js and TypeScript
+- React App Router-compatible source and TypeScript, built by Vinext/Vite
 - Tailwind CSS and shared UI components
 - Generated API client from the backend OpenAPI contract
 - Production Vinext bundle served by a minimal non-root Node adapter
@@ -42,7 +42,8 @@ Caddy gateway
 ### Persistence
 
 - PostgreSQL stores users, projects, requirements, revisions, jobs, and audit records.
-- Object storage keeps uploaded source documents and generated exports.
+- A private named filesystem volume keeps uploaded source documents; generated
+  exports are produced through authenticated project-scoped endpoints.
 - Redis and pgvector are deferred until measured product needs justify them.
 
 ## Primary data flow

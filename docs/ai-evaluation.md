@@ -1,81 +1,92 @@
-# Offline AI Quality & Safety Evaluation (Milestone 10A)
+# Offline AI quality and safety evaluation
 
-This document specifies the methodology, synthetic corpus, quality gates, safety invariants, and offline evaluation harness for BridgeFlow's bilingual Japanese–Vietnamese AI requirements workspace.
+BridgeFlow evaluates its deterministic synthetic provider without calling a
+paid model. The gate deliberately separates component evidence from pipeline
+evidence so a report cannot pass by recreating the expected result in
+JavaScript.
 
-## 1. Overview & Evaluation Principles
+## Evidence model
 
-1. **Zero Recurring Cost & Zero API Spend**:
-   All automated evaluation is run offline and deterministically using synthetic test specifications and the deterministic stub provider (`StubRequirementExtractionProvider`). No real LLM API keys, payment cards, or external network requests are needed.
-2. **Deterministic Reproducibility**:
-   Given identical corpus inputs, the evaluation suite produces bit-for-bit identical capability results, metrics, and token calculations across multiple runs.
-3. **Safety & Human-in-the-Loop Enforced**:
-   AI extraction outputs are strictly treated as **untrusted drafts** (`DRAFT` status and `DRAFT` review status). The system strictly prohibits auto-confirmation of AI candidates.
-4. **Data Privacy & Redaction**:
-   Sensitive information (such as operator emails and proprietary internal tokens) is redacted before prompt dispatch. Raw sensitive data never appears in prompts or logs.
-5. **Traceability by Design**:
-   Every synthesized candidate links to a source document version and a source anchor (`line:N`).
+The versioned corpus is `eval/corpus/corpus-v1.json`. Its 16 synthetic cases
+cover 12 capabilities.
 
-## 2. Evaluation Corpus (`eval/corpus/corpus-v1.json`)
+- `AiOfflineEvaluationTest` loads the corpus and executes the production Java
+  `StubRequirementExtractionProvider` and `SensitiveTextRedactor`. It checks
+  exact source anchors, glossary terms, required fields, bounds, redaction, and
+  normalized-content duplicate removal. The test writes
+  `target/ai-component-evaluation.json`.
+- `AiExtractionServiceFailureTest` exercises the real service failure path and
+  proves that a provider exception leaves the job failed with no promoted
+  requirements or revisions.
+- `RequirementPersistenceIntegrationTest` uses PostgreSQL and the HTTP API to
+  prove extraction idempotency, draft-only human review, persisted document
+  linkage, and revision traceability/change impact.
+- `scripts/evaluate-ai-offline.mjs` does not implement an AI provider. It
+  requires the Java component report plus named green Surefire test cases,
+  joins those artifacts by corpus capability, applies thresholds, and writes
+  `target/ai-evaluation-report.json`.
 
-The evaluation dataset is versioned (`version: 1.0.0`) and contains synthetic requirement specifications for Japanese–Vietnamese software development scenarios (such as authentication, session management, RBAC, and audit logs).
+Missing, skipped, failed, stale-version, or renamed evidence makes the
+aggregation fail.
 
-### Supported Capabilities Tested
+## Capabilities and assertions
 
-| Capability | Description | Target Assertions |
-| :--- | :--- | :--- |
-| `extraction` | Document text -> bilingual requirement candidates | Complete candidates, source anchors, field presence |
-| `glossary_adherence` | Strict translation of domain terms (2FA, audit log, RBAC, PII) | 100% presence of expected Vietnamese glossary terms |
-| `clarification_questions` | Ambiguity detection and question generation | Meaningful questions with rationales |
-| `acceptance_criteria` | Generation of verifiable preconditions and criteria | Given/When/Then criteria structure |
-| `test_cases` | Generation of test cases from approved criteria | Steps, preconditions, expected results, priority |
-| `malformed_input` | Handling empty, whitespace, and oversized inputs | Graceful degradation, clamping to bounds |
-| `sensitive_data_redaction` | Email and token pattern scrubbing | 100% redacted to `[REDACTED_EMAIL]` / `[REDACTED]` |
-| `timeout_and_failure` | Provider exceptions or timeouts | Job transitions to `FAILED`; zero drafts promoted |
-| `retry_and_idempotency` | Re-running extraction on existing version | Reuses existing job; zero duplicate requirements |
-| `duplicate_prevention` | Deduplication of repeated inputs | Bounded by max candidates, distinct keys |
-| `human_review_enforcement` | Mandatory draft state on all generated items | Initial status is `DRAFT`; 0 auto-confirmed items |
-| `traceability_completeness` | Source anchor and version linkage | 100% candidates linked to source line & version |
+| Capability | Evidence | Assertion |
+| --- | --- | --- |
+| Extraction | Production provider | Candidate count, exact anchors, required bilingual fields |
+| Glossary adherence | Production provider | Every expected Vietnamese term is present |
+| Clarification questions | Production provider | Bilingual question and non-empty rationale |
+| Acceptance criteria | Production provider | Bilingual, non-empty criteria; no claim of a formal Gherkin grammar |
+| Test cases | Production provider | Titles, preconditions, steps, expected results, priority |
+| Malformed input | Production provider | Empty input and maximum-candidate bounds |
+| Sensitive-data redaction | Production redactor | Email and configured term are absent after redaction |
+| Duplicate prevention | Production provider | Duplicate normalized Japanese lines collapse to one candidate |
+| Timeout/provider failure | Service unit test | Failed job, error code, zero promoted drafts |
+| Retry/idempotency | PostgreSQL integration test | Same job reused and no duplicate requirements |
+| Human review | PostgreSQL integration test | Generated requirement and revision remain `DRAFT` |
+| Traceability | PostgreSQL integration test | Persisted revision/artifact links and change impact |
 
-## 3. Thresholds & Target Metrics
+## Thresholds
 
-| Metric | Target Threshold | Description |
-| :--- | :---: | :--- |
-| **Safety & Redaction Pass Rate** | **100.0%** | Zero sensitive data leaks into prompts or outputs |
-| **Human Review Enforcement Rate** | **100.0%** | 100% of generated requirements require human confirmation |
-| **Retry & Idempotency Rate** | **100.0%** | Re-running does not produce duplicate database entities |
-| **Traceability Completeness** | **100.0%** | All generated items maintain document version & source anchor |
-| **Glossary Adherence Rate** | **100.0%** | Explicit glossary terms are accurately translated |
-| **Expected Field Coverage** | **>= 90.0%** | All required bilingual fields are populated |
-| **Invalid / Duplicate Rate** | **<= 5.0%** | Generated candidate keys are distinct and valid |
+| Metric | Threshold |
+| --- | ---: |
+| Safety/redaction cases | 100% |
+| Human-review enforcement | 100% |
+| Retry/idempotency | 100% |
+| Traceability completeness | 100% |
+| Explicit glossary cases | 100% |
+| Required-field coverage | at least 90% |
+| Invalid/duplicate artifacts | at most 5% |
 
-## 4. Deterministic Cost & Latency Modeling
+These are deterministic regression metrics for the synthetic stub and the
+BridgeFlow pipeline. They are not measurements of a cloud LLM's semantic
+quality.
 
-Although the offline evaluation executes against the deterministic local stub ($0.00 actual cost), the harness models token consumption and hypothetical cost against modern cloud LLMs (e.g., OpenAI `gpt-4o-mini` at $0.15/1M prompt tokens and $0.60/1M completion tokens):
+## Running the gate
 
-- **Prompt Tokens**: Deterministically estimated using standard CJK/Latin token ratios (~1 token / 1.5 CJK characters, ~1 token / 4 Latin characters).
-- **Completion Tokens**: Estimated based on structured output schema size.
-- **Hypothetical Cost**: ~$0.0007 per complete 16-case test suite run.
-- **Execution Latency**: Typically < 50ms for the entire offline suite.
-
-## 5. Running the Evaluation
-
-### Via NPM
-```bash
-npm run eval:ai:offline
-```
-
-### Via PowerShell / Windows CLI
-```powershell
-.\scripts\evaluate-ai-offline.ps1
-```
+On Windows, run the self-contained command. It creates a disposable PostgreSQL
+cluster, executes the complete backend suite, produces Java/Surefire evidence,
+aggregates the report, and removes the cluster after success:
 
 ```cmd
 scripts\evaluate-ai-offline.cmd
 ```
 
-### Via Backend Maven Test Suite
-```bash
-mvn test -Dtest=AiOfflineEvaluationTest
+or:
+
+```powershell
+.\scripts\evaluate-ai-offline.ps1
 ```
 
-The harness writes a machine-readable JSON report to `target/ai-evaluation-report.json`.
+`npm run eval:ai:offline` performs only the final evidence aggregation. Use it
+after the backend tests have produced current reports, as the release gate and
+CI do.
+
+## Token, cost, and latency boundary
+
+Actual provider spend is exactly `$0` because the evaluated provider is local.
+The report includes a deterministic token heuristic and an explicitly labeled
+illustrative cost model whose rates are versioned in the corpus. It is neither
+a live price quote nor a real-provider token/latency measurement. A genuine
+provider evaluation remains blocked until the user separately approves an API
+key, model, dataset, and maximum budget.

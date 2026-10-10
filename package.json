@@ -13,7 +13,8 @@
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
     "api:generate": "node scripts/generate-api-client.mjs",
     "ops:validate": "node scripts/validate-production-compose.mjs",
-    "eval:ai:offline": "node scripts/evaluate-ai-offline.mjs"
+    "eval:ai:offline": "node scripts/evaluate-ai-offline.mjs",
+    "security:scan": "node scripts/scan-tracked-secrets.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",
