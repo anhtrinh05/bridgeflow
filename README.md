@@ -172,6 +172,14 @@ The harness generates a machine-readable report at `target/ai-evaluation-report.
 See [docs/ai-evaluation.md](docs/ai-evaluation.md) for methodology, corpus design,
 and threshold definitions.
 
+## Portfolio documentation and showcase
+
+- [Portfolio Case Study (EN / VI / JP summary)](docs/portfolio-case-study.md) — Comprehensive architecture, security, and human-in-the-loop AI governance.
+- [Vietnamese Demo Script (2–3 phút)](docs/demo-script-vi.md) — Pitching and live demo walkthrough for technical recruiters and clients.
+- [v1.0.0 Release Notes](docs/release-notes-v1.0.0.md) — Delivered capabilities, verification gates, and reproduction instructions.
+- [Offline AI Quality & Safety Evaluation](docs/ai-evaluation.md) — Corpus methodology, capability benchmarks, and cost modeling.
+- [Workspace Overview Screenshot](docs/assets/screenshots/workspace-overview.png) — Synthetic bilingual requirements management interface.
+
 ## Planned milestones
 
 1. Japanese document ingestion and requirement extraction (implemented)
@@ -196,4 +204,4 @@ and threshold definitions.
    - 9B-Free. Zero-cost on-demand demo tunnel (verified)
 10. Final portfolio delivery:
    - 10A. Offline AI quality, safety, latency, and cost evidence (implemented)
-   - 10B. Complete portfolio documentation and release package (in progress)
+   - 10B. Complete portfolio documentation and release package (implemented)
