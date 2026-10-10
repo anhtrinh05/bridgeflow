@@ -10,6 +10,10 @@ const backendDockerfile = fs.readFileSync(path.join(root, "backend", "Dockerfile
 const frontendDockerfile = fs.readFileSync(path.join(root, "frontend", "Dockerfile"), "utf8");
 const caddyfile = fs.readFileSync(path.join(root, "deploy", "Caddyfile"), "utf8");
 const localCaddyfile = fs.readFileSync(path.join(root, "deploy", "Caddyfile.local"), "utf8");
+const demoCaddyfile = fs.readFileSync(path.join(root, "deploy", "Caddyfile.demo"), "utf8");
+const demoCompose = fs.readFileSync(path.join(root, "compose.demo-tunnel.yaml"), "utf8");
+const startDemoScript = fs.readFileSync(path.join(root, "scripts", "start-demo-tunnel.ps1"), "utf8");
+const stopDemoScript = fs.readFileSync(path.join(root, "scripts", "stop-demo-tunnel.ps1"), "utf8");
 const backupScript = fs.readFileSync(path.join(root, "scripts", "backup-production.ps1"), "utf8");
 const restoreScript = fs.readFileSync(path.join(root, "scripts", "restore-production.ps1"), "utf8");
 
@@ -55,6 +59,20 @@ requireCondition(caddyfile.includes("reverse_proxy frontend:3000"), "gateway mus
 requireCondition(caddyfile.includes("Strict-Transport-Security"), "gateway must set HSTS");
 requireCondition(!caddyfile.includes("tls internal"), "production gateway must use publicly trusted automatic HTTPS");
 requireCondition(localCaddyfile.includes("tls internal"), "local gateway must use Caddy's internal test CA");
+requireCondition(demoCaddyfile.includes("auto_https off"), "demo origin must leave public TLS termination to the tunnel");
+requireCondition(demoCaddyfile.includes("@api path /api/*"), "demo gateway must retain same-origin API routing");
+requireCondition(demoCaddyfile.includes("reverse_proxy @api backend:8080"), "demo gateway must route API requests privately");
+requireCondition(demoCaddyfile.includes("reverse_proxy frontend:3000"), "demo gateway must route frontend requests privately");
+requireCondition((demoCaddyfile.match(/header_up X-Forwarded-Proto https/g) ?? []).length === 2, "demo gateway must preserve the visitor HTTPS scheme for both upstreams");
+requireCondition(demoCaddyfile.includes("Strict-Transport-Security"), "demo responses must retain reviewed security headers");
+requireCondition(demoCompose.includes("ports: !override"), "demo must replace production public port bindings");
+requireCondition(demoCompose.includes('127.0.0.1:${BRIDGEFLOW_DEMO_GATEWAY_PORT:-8082}:80'), "demo gateway must bind only to loopback");
+requireCondition(demoCompose.includes("cloudflare/cloudflared:2026.9.3"), "demo tunnel image must use the reviewed pinned release");
+requireCondition(demoCompose.includes("http://gateway:80"), "demo tunnel must target the private gateway service");
+requireCondition(!/tunnel:[\s\S]*?ports:/m.test(demoCompose), "demo tunnel must not publish a host port");
+requireCondition(startDemoScript.includes("bridgeflow-demo"), "demo start script must use an isolated Compose project");
+requireCondition(startDemoScript.includes("RandomNumberGenerator"), "demo start script must generate a secret locally");
+requireCondition(stopDemoScript.includes("--remove-orphans"), "demo stop script must clean its isolated containers");
 requireCondition(backupScript.includes("pg_dump --clean --if-exists --create"), "backup must contain a restorable database dump");
 requireCondition(backupScript.includes("databaseSha256"), "backup manifest must contain a database checksum");
 requireCondition(restoreScript.includes("[ValidateSet('RESTORE')]"), "restore must require explicit confirmation");

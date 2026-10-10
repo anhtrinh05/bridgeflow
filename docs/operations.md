@@ -54,6 +54,53 @@ Do not install the local CA system-wide. Remove the exported certificate after
 the drill. Public production uses `deploy/Caddyfile` and ACME; it must never use
 the local override or an internally issued certificate.
 
+### Zero-cost on-demand public demo
+
+The demo path preserves the complete local four-service architecture and adds a
+temporary Cloudflare Quick Tunnel. It does not require a Cloudflare account,
+domain, API token, payment method, or inbound router/firewall rule.
+
+```powershell
+.\scripts\start-demo-tunnel.ps1
+```
+
+On first use Docker pulls the pinned `cloudflare/cloudflared:2026.9.3` image.
+The script creates `.tooling/demo-tunnel/.env.demo` with a random database
+password, starts the isolated `bridgeflow-demo` project, waits for the tunnel,
+and prints only its random `https://*.trycloudflare.com` URL. The tracked
+`.env.demo.example` contains placeholders only. AI uses the deterministic
+synthetic provider so the demo does not require or spend an API key.
+
+Provision the first synthetic operator against the same isolated project. The
+command prompts for a password and never writes it to the handoff or command
+line:
+
+```powershell
+.\scripts\bootstrap-production-user.ps1 `
+  -ProjectName bridgeflow-demo `
+  -EnvFile .tooling\demo-tunnel\.env.demo `
+  -Email operator@bridgeflow.local `
+  -DisplayName 'BridgeFlow Demo Operator'
+```
+
+End public access immediately after the demonstration:
+
+```powershell
+.\scripts\stop-demo-tunnel.ps1
+```
+
+That command removes the demo containers and networks but retains named volumes
+and the ignored environment for the next run. To intentionally delete the demo
+database, documents, and generated environment file, use
+`.\scripts\stop-demo-tunnel.ps1 -RemoveData` only after confirming that the
+isolated demo data is no longer needed.
+
+Quick Tunnel URLs are anonymous, random, temporary, and intended for testing or
+development. Anyone who knows the URL can reach the login page. Application
+authorization still protects project data, but the URL must not be used for
+customer documents or advertised as production. The computer, Docker Desktop,
+and tunnel must remain running; stopping the tunnel invalidates the URL.
+
 For an isolated named drill stack, pass the same Compose project name when
 bootstrapping its synthetic operator:
 

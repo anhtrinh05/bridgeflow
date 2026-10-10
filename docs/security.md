@@ -63,6 +63,15 @@ Before sending content to an AI provider, the backend must:
 
 The selected provider must have documented retention and training controls suitable for the deployment. Provider responses remain untrusted drafts until reviewed by a human.
 
+The zero-cost portfolio demo uses an anonymous, temporary Cloudflare Quick
+Tunnel and synthetic data only. Public TLS terminates at Cloudflare; the tunnel
+connects to a loopback-bound Caddy demo origin, while frontend, backend,
+PostgreSQL, and document volumes remain unpublished. The random URL is not an
+access-control mechanism: normal login and project authorization remain
+mandatory. Caddy marks both upstream hops with the original public HTTPS scheme
+so Spring's forwarded-header and same-origin checks remain correct. Stop the
+tunnel after the demo and never upload customer documents.
+
 The OpenAI adapter uses the Responses API with Structured Outputs, disables provider
 storage (`store: false`), sends a per-job correlation ID, and reads the API key only
 from the process environment. Project AI processing is disabled by default. The

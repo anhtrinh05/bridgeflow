@@ -1,0 +1,31 @@
+services:
+  gateway:
+    ports: !override
+      - "127.0.0.1:${BRIDGEFLOW_DEMO_GATEWAY_PORT:-8082}:80"
+    volumes:
+      - ./deploy/Caddyfile.demo:/etc/caddy/Caddyfile:ro
+
+  tunnel:
+    image: cloudflare/cloudflared:2026.9.3
+    profiles:
+      - tunnel
+    restart: "no"
+    depends_on:
+      gateway:
+        condition: service_healthy
+    command:
+      - tunnel
+      - --no-autoupdate
+      - --url
+      - http://gateway:80
+    environment:
+      HOME: /tmp
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=32m
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - edge

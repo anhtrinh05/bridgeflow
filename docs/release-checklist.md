@@ -20,3 +20,7 @@
 - [ ] Retention duration and UTC purge schedule have owner approval.
 - [ ] Release commit SHA, operator, date, verification output, and rollback target
       are recorded in the deployment system.
+
+For an on-demand demo release, record the temporary tunnel verification
+separately. Do not mark public-production, off-host-backup, DNS, or rollback
+items complete merely because a Quick Tunnel demo passed.

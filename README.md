@@ -100,6 +100,33 @@ so no system-wide policy change is needed.
 
 See [backend/README.md](backend/README.md) for details and optional tool paths.
 
+## Zero-cost on-demand demo
+
+With Docker Desktop running, start the complete application plus a temporary
+public HTTPS URL without buying a VPS or domain:
+
+```powershell
+.\scripts\start-demo-tunnel.ps1
+```
+
+The script creates an ignored local environment with a random PostgreSQL secret,
+builds an isolated `bridgeflow-demo` stack, and prints a random
+`https://*.trycloudflare.com` URL. Cloudflare terminates public HTTPS; only the
+Caddy gateway is reachable and it keeps `/api/*` same-origin. Backend,
+PostgreSQL, and document storage remain private Docker services.
+
+Stop public access when the demonstration ends:
+
+```powershell
+.\scripts\stop-demo-tunnel.ps1
+```
+
+The URL works only while this computer, Docker Desktop, and the tunnel container
+are running, and it changes after the tunnel is recreated. This is an on-demand
+portfolio demo, not an always-on production deployment or SLA. See
+[docs/operations.md](docs/operations.md) for first-user bootstrap, data cleanup,
+and security details.
+
 ## Production operations
 
 Copy `.env.production.example` to the ignored `.env.production`, replace every

@@ -19,6 +19,8 @@ try {
         'scripts/backup-production.ps1',
         'scripts/bootstrap-production-user.ps1',
         'scripts/restore-production.ps1',
+        'scripts/start-demo-tunnel.ps1',
+        'scripts/stop-demo-tunnel.ps1',
         'scripts/verify-release.ps1'
     )) {
         $tokens = $null
@@ -36,6 +38,9 @@ try {
         & docker compose --env-file .env.production.local.example `
             -f compose.production.yaml -f compose.production.local.yaml config --quiet
         if ($LASTEXITCODE -ne 0) { throw 'Local TLS Compose validation failed.' }
+        & docker compose --profile tunnel --env-file .env.demo.example `
+            -f compose.production.yaml -f compose.demo-tunnel.yaml config --quiet
+        if ($LASTEXITCODE -ne 0) { throw 'On-demand demo Compose validation failed.' }
     } else {
         Write-Warning 'Docker is unavailable; run Docker Compose config/build validation on the deployment host.'
     }
