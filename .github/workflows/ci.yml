@@ -106,6 +106,7 @@ jobs:
       - name: Validate production configuration
         run: |
           npm run ops:validate
+          npm run eval:ai:offline
           docker compose --env-file .env.production.example -f compose.production.yaml config --quiet
           docker compose --env-file .env.production.local.example -f compose.production.yaml -f compose.production.local.yaml config --quiet
           docker compose --profile tunnel --env-file .env.demo.example -f compose.production.yaml -f compose.demo-tunnel.yaml config --quiet

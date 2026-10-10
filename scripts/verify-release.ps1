@@ -15,9 +15,12 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Frontend production build failed.' }
     & npm.cmd run ops:validate
     if ($LASTEXITCODE -ne 0) { throw 'Production Compose semantic validation failed.' }
+    & npm.cmd run eval:ai:offline
+    if ($LASTEXITCODE -ne 0) { throw 'Deterministic offline AI evaluation failed.' }
     foreach ($script in @(
         'scripts/backup-production.ps1',
         'scripts/bootstrap-production-user.ps1',
+        'scripts/evaluate-ai-offline.ps1',
         'scripts/restore-production.ps1',
         'scripts/start-demo-tunnel.ps1',
         'scripts/stop-demo-tunnel.ps1',

@@ -12,7 +12,8 @@
     "start": "node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js dev --config dist/server/wrangler.json --local --persist-to .wrangler/state --ip 127.0.0.1 --inspector-port 0",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
     "api:generate": "node scripts/generate-api-client.mjs",
-    "ops:validate": "node scripts/validate-production-compose.mjs"
+    "ops:validate": "node scripts/validate-production-compose.mjs",
+    "eval:ai:offline": "node scripts/evaluate-ai-offline.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",

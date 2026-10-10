@@ -16,6 +16,8 @@ const startDemoScript = fs.readFileSync(path.join(root, "scripts", "start-demo-t
 const stopDemoScript = fs.readFileSync(path.join(root, "scripts", "stop-demo-tunnel.ps1"), "utf8");
 const backupScript = fs.readFileSync(path.join(root, "scripts", "backup-production.ps1"), "utf8");
 const restoreScript = fs.readFileSync(path.join(root, "scripts", "restore-production.ps1"), "utf8");
+const evalScript = fs.readFileSync(path.join(root, "scripts", "evaluate-ai-offline.mjs"), "utf8");
+const evalCorpus = JSON.parse(fs.readFileSync(path.join(root, "eval", "corpus", "corpus-v1.json"), "utf8"));
 
 function requireCondition(condition, message) {
   if (!condition) throw new Error(`Invalid production Compose: ${message}`);
@@ -77,6 +79,9 @@ requireCondition(backupScript.includes("pg_dump --clean --if-exists --create"), 
 requireCondition(backupScript.includes("databaseSha256"), "backup manifest must contain a database checksum");
 requireCondition(restoreScript.includes("[ValidateSet('RESTORE')]"), "restore must require explicit confirmation");
 requireCondition(restoreScript.includes("Get-FileHash"), "restore must verify the database checksum");
+requireCondition(evalCorpus.version === "1.0.0", "offline AI evaluation corpus version 1.0.0 is required");
+requireCondition(evalScript.includes("StubRequirementExtractionProvider"), "offline AI evaluation harness must evaluate the deterministic provider");
+requireCondition(evalScript.includes("SensitiveTextRedactor"), "offline AI evaluation harness must evaluate sensitive text redaction");
 
 console.log("Production Compose semantic validation passed.");
 if (process.platform === "win32") {

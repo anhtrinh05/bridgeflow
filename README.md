@@ -36,6 +36,7 @@ components/ shared frontend components
 backend/    Spring Boot REST API
 frontend/   production frontend image and Node bundle adapter
 deploy/     Caddy TLS gateway configuration
+eval/       synthetic evaluation corpus and test definitions
 docs/       architecture, security, and data-model decisions
 ```
 
@@ -145,6 +146,32 @@ TLS-ready drills. See
 release procedures, including the one-shot first-user bootstrap. Production
 never enables the development demo account.
 
+## Offline AI quality and safety evaluation
+
+BridgeFlow includes a deterministic, zero-cost offline evaluation suite that
+benchmarks the AI pipeline across 12 capabilities using synthetic
+Japanese–Vietnamese specifications. It enforces safety invariants (prompt
+redaction, human-in-the-loop draft status, idempotency) and measures glossary
+adherence, field coverage, and modeled token costs without calling paid APIs:
+
+```bash
+npm run eval:ai:offline
+```
+
+On Windows, use the dedicated CLI scripts:
+
+```powershell
+.\scripts\evaluate-ai-offline.ps1
+```
+
+```cmd
+scripts\evaluate-ai-offline.cmd
+```
+
+The harness generates a machine-readable report at `target/ai-evaluation-report.json`.
+See [docs/ai-evaluation.md](docs/ai-evaluation.md) for methodology, corpus design,
+and threshold definitions.
+
 ## Planned milestones
 
 1. Japanese document ingestion and requirement extraction (implemented)
@@ -166,4 +193,7 @@ never enables the development demo account.
    - 8D. GitHub Actions continuous integration (implemented)
 9. Deployment:
    - 9A. Complete deployable web stack and TLS boundary (implemented)
-   - 9B. Public deployment, secrets, and rollback drill (planned)
+   - 9B-Free. Zero-cost on-demand demo tunnel (verified)
+10. Final portfolio delivery:
+   - 10A. Offline AI quality, safety, latency, and cost evidence (implemented)
+   - 10B. Complete portfolio documentation and release package (in progress)

@@ -1,0 +1,190 @@
+{
+  "version": "1.0.0",
+  "description": "Synthetic Japanese-Vietnamese requirement evaluation corpus for BridgeFlow AI pipeline (Milestone 10A)",
+  "license": "Synthetic test data only. Zero real customer, personal, or confidential text.",
+  "updated": "2026-10-10",
+  "metadata": {
+    "targetLanguagePair": "ja-JP -> vi-VN",
+    "providerEvaluated": "stub",
+    "supportedCapabilities": [
+      "extraction",
+      "glossary_adherence",
+      "clarification_questions",
+      "acceptance_criteria",
+      "test_cases",
+      "malformed_input",
+      "sensitive_data_redaction",
+      "timeout_and_failure",
+      "retry_and_idempotency",
+      "duplicate_prevention",
+      "human_review_enforcement",
+      "traceability_completeness"
+    ]
+  },
+  "glossary": [
+    {
+      "japaneseTerm": "二要素認証",
+      "vietnameseTerm": "Xác thực hai yếu tố",
+      "notes": "2FA authentication mechanism"
+    },
+    {
+      "japaneseTerm": "監査ログ",
+      "vietnameseTerm": "Nhật ký kiểm toán",
+      "notes": "Security and compliance audit trail"
+    },
+    {
+      "japaneseTerm": "権限管理",
+      "vietnameseTerm": "Quản lý phân quyền",
+      "notes": "Role-based access control"
+    },
+    {
+      "japaneseTerm": "個人情報",
+      "vietnameseTerm": "Thông tin cá nhân",
+      "notes": "Personally Identifiable Information (PII)"
+    },
+    {
+      "japaneseTerm": "受入条件",
+      "vietnameseTerm": "Tiêu chí chấp nhận",
+      "notes": "Acceptance criteria for user stories"
+    }
+  ],
+  "cases": [
+    {
+      "id": "EXTRACT-001",
+      "capability": "extraction",
+      "title": "Authentication Specification Document Extraction",
+      "documentText": "ユーザーはメールアドレスとパスワードでログインできること。\n二要素認証が有効な場合、確認コードの入力を要求すること。\nログイン失敗が5回連続した場合、アカウントを一時ロックすること。",
+      "maxCandidates": 10,
+      "expectedMinCandidates": 3,
+      "expectedAnchors": ["line:1", "line:2", "line:3"]
+    },
+    {
+      "id": "EXTRACT-002",
+      "capability": "extraction",
+      "title": "Audit Trail Logging Requirement Extraction",
+      "documentText": "すべての重要操作について監査ログを記録すること。\n監査ログは最低90日間保持し、改ざん防止措置を講じること。",
+      "maxCandidates": 5,
+      "expectedMinCandidates": 2,
+      "expectedAnchors": ["line:1", "line:2"]
+    },
+    {
+      "id": "GLOSSARY-001",
+      "capability": "glossary_adherence",
+      "title": "2FA & Audit Log Terminology Preservation",
+      "documentText": "管理者ログインには二要素認証を必須とし、すべての認証試行を監査ログに記録する。",
+      "requiredTerms": ["二要素認証", "監査ログ"],
+      "expectedVietnameseTerms": ["Xác thực hai yếu tố", "Nhật ký kiểm toán"]
+    },
+    {
+      "id": "GLOSSARY-002",
+      "capability": "glossary_adherence",
+      "title": "RBAC & PII Terminology Preservation",
+      "documentText": "個人情報の閲覧には権限管理によるアクセス許可が必要である。",
+      "requiredTerms": ["個人情報", "権限管理"],
+      "expectedVietnameseTerms": ["Thông tin cá nhân", "Quản lý phân quyền"]
+    },
+    {
+      "id": "CLARIFY-001",
+      "capability": "clarification_questions",
+      "title": "Ambiguous Session Timeout Clarification",
+      "japaneseText": "セッションの有効期限が切れたら再認証すること。",
+      "vietnameseText": "Khi phiên làm việc hết hạn, yêu cầu xác thực lại.",
+      "expectedQuestionsMin": 1,
+      "expectedRationale": true
+    },
+    {
+      "id": "CRITERIA-001",
+      "capability": "acceptance_criteria",
+      "title": "Password Reset Acceptance Criteria Generation",
+      "japaneseText": "ユーザーはパスワード再設定リンクをメールで受信できること。",
+      "vietnameseText": "Người dùng có thể nhận liên kết đặt lại mật khẩu qua email.",
+      "expectedCriteriaMin": 2
+    },
+    {
+      "id": "TESTCASE-001",
+      "capability": "test_cases",
+      "title": "Test Case Synthesis from Approved Criterion",
+      "criterion": {
+        "japaneseText": "前提条件を満たす場合、二要素認証の確認コード画面が表示されること。",
+        "vietnameseText": "Khi đáp ứng điều kiện tiên quyết, màn hình nhập mã xác thực hai yếu tố sẽ hiển thị."
+      },
+      "expectedFields": ["title", "preconditions", "steps", "expectedResult", "priority"]
+    },
+    {
+      "id": "MALFORM-001",
+      "capability": "malformed_input",
+      "title": "Empty Document Input Handling",
+      "documentText": "   \n\n   \r\n   ",
+      "maxCandidates": 10,
+      "expectedCandidates": 0
+    },
+    {
+      "id": "MALFORM-002",
+      "capability": "malformed_input",
+      "title": "Oversized Candidate Clamp Handling",
+      "documentText": "要件1\n要件2\n要件3\n要件4\n要件5\n要件6\n要件7\n要件8",
+      "maxCandidates": 3,
+      "expectedMaxCandidates": 3
+    },
+    {
+      "id": "REDACT-001",
+      "capability": "sensitive_data_redaction",
+      "title": "Operator Email Redaction in AI Prompt",
+      "documentText": "担当者: operator.tokyo@client-corp.jp にお問い合わせください。",
+      "expectedRedacted": "[REDACTED_EMAIL]",
+      "forbiddenRaw": "operator.tokyo@client-corp.jp"
+    },
+    {
+      "id": "REDACT-002",
+      "capability": "sensitive_data_redaction",
+      "title": "Configured Secret Token Redaction in AI Prompt",
+      "documentText": "接続トークン: SECRET_TOKEN_INTERNAL_9988 を使用して外部連携を行う。",
+      "redactTerm": "SECRET_TOKEN_INTERNAL_9988",
+      "expectedRedacted": "[REDACTED]",
+      "forbiddenRaw": "SECRET_TOKEN_INTERNAL_9988"
+    },
+    {
+      "id": "FAILURE-001",
+      "capability": "timeout_and_failure",
+      "title": "Provider Failure Isolation and Safe State Handling",
+      "scenario": "SIMULATED_PROVIDER_TIMEOUT",
+      "expectedJobStatus": "FAILED",
+      "expectedErrorCode": "AI_EXTRACTION_FAILED",
+      "promotedDraftCount": 0
+    },
+    {
+      "id": "IDEMPOTENT-001",
+      "capability": "retry_and_idempotency",
+      "title": "Repeated Extraction Job Idempotency",
+      "versionId": "c57e2ace-6528-4bd8-a8e4-7530a90ace0e",
+      "expectedDuplicateJobs": 0,
+      "expectedDuplicateRequirements": 0
+    },
+    {
+      "id": "DEDUP-001",
+      "capability": "duplicate_prevention",
+      "title": "Redundant Requirement Candidate Deduplication",
+      "documentText": "同一の要件記述\n同一の要件記述\n異なる要件記述",
+      "maxCandidates": 10,
+      "expectDistinctKeys": true
+    },
+    {
+      "id": "HUMAN-001",
+      "capability": "human_review_enforcement",
+      "title": "Mandatory Draft Status on All Synthesized Requirements",
+      "expectedInitialStatus": "DRAFT",
+      "expectedReviewStatus": "DRAFT",
+      "autoConfirmedAllowed": false
+    },
+    {
+      "id": "TRACE-001",
+      "capability": "traceability_completeness",
+      "title": "End-to-End Linkage from Source Anchor to Revision",
+      "expectedLinkage": {
+        "hasSourceAnchor": true,
+        "hasVersionLink": true,
+        "hasChangeType": true
+      }
+    }
+  ]
+}
