@@ -33,6 +33,9 @@ try {
     if (Get-Command docker -ErrorAction SilentlyContinue) {
         & docker compose --env-file .env.production.example -f compose.production.yaml config --quiet
         if ($LASTEXITCODE -ne 0) { throw 'Docker Compose runtime validation failed.' }
+        & docker compose --env-file .env.production.local.example `
+            -f compose.production.yaml -f compose.production.local.yaml config --quiet
+        if ($LASTEXITCODE -ne 0) { throw 'Local TLS Compose validation failed.' }
     } else {
         Write-Warning 'Docker is unavailable; run Docker Compose config/build validation on the deployment host.'
     }

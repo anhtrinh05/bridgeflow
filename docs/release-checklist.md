@@ -10,7 +10,9 @@
       bootstrap remains disabled during normal runtime, and a second run is rejected.
 - [ ] Only synthetic/public fixtures are tracked; no customer document is present.
 - [ ] TLS terminates at the approved reverse proxy and the backend remains bound
-      to a private or localhost interface.
+      to a private interface; frontend/backend/PostgreSQL publish no host ports.
+- [ ] HTTP redirects to the canonical HTTPS origin and gateway security headers
+      are present; the local internal-CA override is not deployed publicly.
 - [ ] Liveness and database-backed readiness are `UP` after deployment.
 - [ ] Metrics require authentication and logs contain no request body or token.
 - [ ] A fresh off-host encrypted backup exists.

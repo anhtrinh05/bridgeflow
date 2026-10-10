@@ -4,8 +4,10 @@
 
 1. Copy `.env.production.example` to `.env.production`.
 2. Replace `POSTGRES_PASSWORD`; configure AI only when an approved provider and
-   key are available. Set `BRIDGEFLOW_CORS_ALLOWED_ORIGINS` to the exact HTTPS
-   frontend origin. Never commit `.env.production`.
+   key are available. Set `BRIDGEFLOW_SITE_ADDRESS` to the public hostname,
+   `BRIDGEFLOW_PUBLIC_ORIGIN` to its exact HTTPS origin, and
+   `BRIDGEFLOW_ACME_EMAIL` to the certificate operator. Point public DNS at the
+   host and allow inbound TCP 80/443. Never commit `.env.production`.
 3. Run:
 
    ```powershell
@@ -13,13 +15,55 @@
    docker compose --env-file .env.production -f compose.production.yaml ps
    ```
 
-4. Put a trusted TLS reverse proxy in front of the default localhost binding.
-5. Confirm both `/actuator/health/liveness` and
-   `/actuator/health/readiness` return `UP` through the deployed route.
+4. Confirm all four containers are healthy. Open only the configured HTTPS
+   origin; the gateway routes `/api/*` to Spring Boot and other requests to the
+   frontend Worker. Actuator endpoints intentionally remain private.
+5. Confirm login and the core project/requirement workflow through the single
+   HTTPS origin. Confirm HTTP redirects to HTTPS and inspect the HSTS,
+   `nosniff`, frame-denial, referrer, and permissions-policy headers.
 
-PostgreSQL has no published port. The backend runs as a non-root user with a
-read-only root filesystem, dropped capabilities, a bounded temporary filesystem,
-and persistent named volumes only for PostgreSQL and private documents.
+Only Caddy publishes host ports. Frontend, backend, and PostgreSQL have no host
+ports; the application and database networks are internal. Frontend and backend
+run as non-root users with read-only root filesystems, dropped capabilities, and
+bounded temporary filesystems. Named volumes persist PostgreSQL, private
+documents, and Caddy certificate state.
+
+### Local TLS-ready drill
+
+Copy `.env.production.local.example` to an ignored `.env.production.local`, set
+a disposable PostgreSQL password, then run:
+
+```powershell
+$compose = @('compose', '--env-file', '.env.production.local',
+  '-f', 'compose.production.yaml', '-f', 'compose.production.local.yaml')
+docker @compose up -d --build
+docker @compose ps
+```
+
+The local override uses Caddy's internal CA and exposes only
+`https://localhost:8443` (plus the HTTP redirect port 8081) on loopback. Export
+the test root solely for curl/browser verification:
+
+```powershell
+docker @compose cp gateway:/data/caddy/pki/authorities/local/root.crt .tooling/caddy-local-root.crt
+curl.exe --cacert .tooling/caddy-local-root.crt https://localhost:8443/
+curl.exe --cacert .tooling/caddy-local-root.crt https://localhost:8443/api/v1/health
+```
+
+Do not install the local CA system-wide. Remove the exported certificate after
+the drill. Public production uses `deploy/Caddyfile` and ACME; it must never use
+the local override or an internally issued certificate.
+
+For an isolated named drill stack, pass the same Compose project name when
+bootstrapping its synthetic operator:
+
+```powershell
+.\scripts\bootstrap-production-user.ps1 `
+  -ProjectName bridgeflow-m9a `
+  -EnvFile .env.production.local `
+  -Email operator@bridgeflow.local `
+  -DisplayName 'BridgeFlow Local Operator'
+```
 
 ## Initial production user
 

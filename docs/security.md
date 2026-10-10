@@ -93,6 +93,13 @@ Linux capabilities, persists only database/document volumes, and binds the API
 to localhost by default. TLS remains the responsibility of the external reverse
 proxy. Production disables Swagger/OpenAPI endpoints and enables graceful shutdown.
 
+The production gateway is the sole published network entry point. It terminates
+TLS, redirects HTTP to HTTPS, adds HSTS, content-type, framing, referrer, and
+browser-permission controls, and sends only `/api/*` to Spring Boot. Frontend,
+backend, and PostgreSQL remain on internal Docker networks without host ports;
+Actuator health endpoints are not routed publicly. The local Compose override
+uses an internal CA only for loopback verification and must never be deployed.
+
 Production never seeds demo users. Initial access is provisioned by an explicit
 one-shot container command that reads a 16–128 character password from a
 read-only file mount. Bootstrap is available only under the `prod` profile when

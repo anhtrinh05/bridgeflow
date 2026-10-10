@@ -34,6 +34,8 @@ AI-assisted requirements workspace for Japanese–Vietnamese software teams.
 app/        Next.js frontend
 components/ shared frontend components
 backend/    Spring Boot REST API
+frontend/   production frontend image and Node bundle adapter
+deploy/     Caddy TLS gateway configuration
 docs/       architecture, security, and data-model decisions
 ```
 
@@ -101,15 +103,17 @@ See [backend/README.md](backend/README.md) for details and optional tool paths.
 ## Production operations
 
 Copy `.env.production.example` to the ignored `.env.production`, replace every
-placeholder secret, then start the hardened backend/PostgreSQL stack:
+placeholder secret and hostname, then start the complete HTTPS stack:
 
 ```powershell
 docker compose --env-file .env.production -f compose.production.yaml up -d --build
 ```
 
-The backend binds to `127.0.0.1` by default. Terminate TLS at a trusted reverse
-proxy and forward only the API port. PostgreSQL is isolated on an internal
-network; database and private documents use named volumes. See
+Only the Caddy gateway publishes ports 80/443. It serves the frontend and routes
+same-origin `/api/*` requests to Spring Boot; frontend, backend, and PostgreSQL
+remain on internal networks. Database, private documents, and certificate state
+use named volumes. A loopback-only internal-CA override is available for local
+TLS-ready drills. See
 [docs/operations.md](docs/operations.md) for backup, restore, retention, and
 release procedures, including the one-shot first-user bootstrap. Production
 never enables the development demo account.
@@ -133,3 +137,6 @@ never enables the development demo account.
    - 8B. Database/document backup and restore runtime drill (verified)
    - 8C. Secure initial production-user bootstrap (implemented)
    - 8D. GitHub Actions continuous integration (implemented)
+9. Deployment:
+   - 9A. Complete deployable web stack and TLS boundary (implemented)
+   - 9B. Public deployment, secrets, and rollback drill (planned)

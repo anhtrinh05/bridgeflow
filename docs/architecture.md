@@ -11,15 +11,15 @@ AI output is always a draft. A BrSE or another authorized reviewer must confirm 
 ```text
 Browser
   │
+  │ HTTPS
   ▼
-Next.js frontend
-  │ REST/JSON
-  ▼
-Spring Boot API
-  ├── PostgreSQL
-  ├── Object storage
-  ├── Background job runner
-  └── AI provider adapter
+Caddy gateway
+  ├── /          → Vinext frontend bundle
+  └── /api/*     → Spring Boot API
+                       ├── PostgreSQL
+                       ├── Private document volume
+                       ├── Background job runner
+                       └── AI provider adapter
 ```
 
 ### Frontend
@@ -27,6 +27,8 @@ Spring Boot API
 - Next.js and TypeScript
 - Tailwind CSS and shared UI components
 - Generated API client from the backend OpenAPI contract
+- Production Vinext bundle served by a minimal non-root Node adapter
+- Same-origin `/api/v1` calls behind the TLS gateway
 - No authoritative project data in browser storage
 
 ### Backend
@@ -80,7 +82,8 @@ its source criterion ID and remains a draft until an authorized human reviews it
 - Audited cross-requirement relations
 - Audited bilingual CSV and Markdown exports
 - Correlation IDs, structured production logs, bounded-cardinality HTTP metrics, and health probes
-- Hardened backend/PostgreSQL Compose deployment, retention deletion receipts, and backup/restore operations
+- Single-origin HTTPS Compose deployment with private frontend/backend/database networks
+- Retention deletion receipts and backup/restore operations
 - Basic exports and audit history
 
 ## Deferred scope

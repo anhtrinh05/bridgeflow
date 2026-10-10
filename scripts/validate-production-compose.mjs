@@ -6,7 +6,10 @@ import yaml from "js-yaml";
 const root = path.resolve(import.meta.dirname, "..");
 const composePath = path.join(root, "compose.production.yaml");
 const compose = yaml.load(fs.readFileSync(composePath, "utf8"));
-const dockerfile = fs.readFileSync(path.join(root, "backend", "Dockerfile"), "utf8");
+const backendDockerfile = fs.readFileSync(path.join(root, "backend", "Dockerfile"), "utf8");
+const frontendDockerfile = fs.readFileSync(path.join(root, "frontend", "Dockerfile"), "utf8");
+const caddyfile = fs.readFileSync(path.join(root, "deploy", "Caddyfile"), "utf8");
+const localCaddyfile = fs.readFileSync(path.join(root, "deploy", "Caddyfile.local"), "utf8");
 const backupScript = fs.readFileSync(path.join(root, "scripts", "backup-production.ps1"), "utf8");
 const restoreScript = fs.readFileSync(path.join(root, "scripts", "restore-production.ps1"), "utf8");
 
@@ -16,22 +19,42 @@ function requireCondition(condition, message) {
 
 const postgres = compose?.services?.postgres;
 const backend = compose?.services?.backend;
-requireCondition(postgres && backend, "postgres and backend services are required");
+const frontend = compose?.services?.frontend;
+const gateway = compose?.services?.gateway;
+requireCondition(postgres && backend && frontend && gateway, "gateway, frontend, backend, and postgres services are required");
 requireCondition(!postgres.ports, "PostgreSQL must not publish a host port");
+requireCondition(!backend.ports, "backend must not publish a host port");
+requireCondition(!frontend.ports, "frontend must not publish a host port");
+requireCondition(gateway.ports?.length === 2, "gateway must be the only HTTP/HTTPS entry point");
 requireCondition(postgres.networks?.includes("database"), "PostgreSQL must use the private database network");
 requireCondition(compose.networks?.database?.internal === true, "database network must be internal");
+requireCondition(compose.networks?.application?.internal === true, "application network must be internal");
+requireCondition(gateway.networks?.includes("edge") && gateway.networks?.includes("application"), "gateway must bridge edge and application networks");
+requireCondition(frontend.networks?.length === 1 && frontend.networks[0] === "application", "frontend must remain on the private application network");
+requireCondition(backend.networks?.includes("application"), "backend must use the private application network");
 requireCondition(backend.networks?.includes("database"), "backend must reach the database network");
 requireCondition(backend.networks?.includes("egress"), "backend needs controlled provider egress");
-requireCondition(backend.read_only === true, "backend root filesystem must be read-only");
-requireCondition(backend.cap_drop?.includes("ALL"), "backend must drop Linux capabilities");
-requireCondition(
-  backend.security_opt?.includes("no-new-privileges:true"),
-  "backend must prohibit privilege escalation",
-);
+for (const [name, service] of [["gateway", gateway], ["frontend", frontend], ["backend", backend]]) {
+  requireCondition(service.read_only === true, `${name} root filesystem must be read-only`);
+  requireCondition(service.cap_drop?.includes("ALL"), `${name} must drop Linux capabilities`);
+  requireCondition(service.security_opt?.includes("no-new-privileges:true"), `${name} must prohibit privilege escalation`);
+}
 requireCondition(backend.healthcheck?.test?.includes("curl"), "backend readiness healthcheck is required");
+requireCondition(frontend.healthcheck?.test?.includes("node"), "frontend healthcheck is required");
+requireCondition(gateway.healthcheck?.test?.includes("wget"), "gateway healthcheck is required");
 requireCondition(backend.volumes?.some((item) => item.includes("bridgeflow-documents")), "document volume is required");
 requireCondition(postgres.volumes?.some((item) => item.includes("bridgeflow-postgres")), "database volume is required");
-requireCondition(/^USER bridgeflow$/m.test(dockerfile), "backend image must run as the bridgeflow user");
+requireCondition(/^USER bridgeflow$/m.test(backendDockerfile), "backend image must run as the bridgeflow user");
+requireCondition(/^USER node$/m.test(frontendDockerfile), "frontend image must run as the node user");
+requireCondition(frontendDockerfile.includes('ENTRYPOINT ["node", "/app/server.mjs"]'), "frontend image must run the built bundle without a development server");
+requireCondition(frontend.build?.args?.NEXT_PUBLIC_API_URL === "/api/v1", "frontend API URL must use the same-origin gateway route");
+requireCondition(gateway.image === "caddy:2.11.7-alpine", "gateway image must use the reviewed Caddy release");
+requireCondition(caddyfile.includes("@api path /api/*"), "gateway must route API requests explicitly");
+requireCondition(caddyfile.includes("reverse_proxy @api backend:8080"), "gateway must route API requests to backend");
+requireCondition(caddyfile.includes("reverse_proxy frontend:3000"), "gateway must route web requests to frontend");
+requireCondition(caddyfile.includes("Strict-Transport-Security"), "gateway must set HSTS");
+requireCondition(!caddyfile.includes("tls internal"), "production gateway must use publicly trusted automatic HTTPS");
+requireCondition(localCaddyfile.includes("tls internal"), "local gateway must use Caddy's internal test CA");
 requireCondition(backupScript.includes("pg_dump --clean --if-exists --create"), "backup must contain a restorable database dump");
 requireCondition(backupScript.includes("databaseSha256"), "backup manifest must contain a database checksum");
 requireCondition(restoreScript.includes("[ValidateSet('RESTORE')]"), "restore must require explicit confirmation");

@@ -9,7 +9,8 @@ param(
     [string]$DisplayName,
 
     [string]$PasswordFile = "",
-    [string]$EnvFile = ""
+    [string]$EnvFile = "",
+    [string]$ProjectName = ""
 )
 
 $ErrorActionPreference = 'Stop'
@@ -61,7 +62,11 @@ try {
         throw 'Password file must contain exactly one line.'
     }
 
-    $compose = @('compose', '--env-file', $EnvFile, '-f', $composeFile)
+    $compose = @('compose')
+    if (-not [string]::IsNullOrWhiteSpace($ProjectName)) {
+        $compose += @('--project-name', $ProjectName.Trim())
+    }
+    $compose += @('--env-file', $EnvFile, '-f', $composeFile)
     $databaseContainer = (& docker @compose ps -q postgres).Trim()
     if ([string]::IsNullOrWhiteSpace($databaseContainer)) {
         throw 'Production postgres container is not running.'
