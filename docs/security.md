@@ -93,6 +93,13 @@ Linux capabilities, persists only database/document volumes, and binds the API
 to localhost by default. TLS remains the responsibility of the external reverse
 proxy. Production disables Swagger/OpenAPI endpoints and enables graceful shutdown.
 
+Production never seeds demo users. Initial access is provisioned by an explicit
+one-shot container command that reads a 16–128 character password from a
+read-only file mount. Bootstrap is available only under the `prod` profile when
+explicitly enabled and only while `app_users` is empty; it cannot overwrite or
+add later users. Password contents are never accepted as command-line arguments
+or logged. Normal backend containers leave bootstrap disabled.
+
 ## Public portfolio policy
 
 - Use fictional company and person names.

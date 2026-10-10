@@ -5,6 +5,8 @@
       zero failures, errors, and skipped tests.
 - [ ] The production Compose configuration resolves with the deployment env file.
 - [ ] `POSTGRES_PASSWORD` and provider keys come from deployment secrets, not Git.
+- [ ] The first production user was created through the one-shot bootstrap,
+      bootstrap remains disabled during normal runtime, and a second run is rejected.
 - [ ] Only synthetic/public fixtures are tracked; no customer document is present.
 - [ ] TLS terminates at the approved reverse proxy and the backend remains bound
       to a private or localhost interface.

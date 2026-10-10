@@ -17,6 +17,7 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Production Compose semantic validation failed.' }
     foreach ($script in @(
         'scripts/backup-production.ps1',
+        'scripts/bootstrap-production-user.ps1',
         'scripts/restore-production.ps1',
         'scripts/verify-release.ps1'
     )) {

@@ -21,6 +21,30 @@ PostgreSQL has no published port. The backend runs as a non-root user with a
 read-only root filesystem, dropped capabilities, a bounded temporary filesystem,
 and persistent named volumes only for PostgreSQL and private documents.
 
+## Initial production user
+
+The `prod` profile never creates demo credentials. On a fresh database, provision
+the first operator through the one-shot backend command:
+
+```powershell
+.\scripts\bootstrap-production-user.ps1 `
+  -Email operator@example.com `
+  -DisplayName "Initial Operator"
+```
+
+The script prompts twice for a 16–128 character password, writes it only to a
+temporary UTF-8 file, mounts that file read-only into the one-shot container,
+and removes it in `finally`. For an approved secret file supplied by an operator
+or secret manager, pass `-PasswordFile C:\secure\bridgeflow-bootstrap.txt` and
+remove that file after success. The password is never passed on the command line
+or written to application logs.
+
+Bootstrap is deliberately refused after any user exists, so it cannot reset or
+overwrite credentials. The first user can authenticate through the normal login
+endpoint; creating a project makes that user the project's `ADMIN`. Keep normal
+backend containers configured with `BRIDGEFLOW_BOOTSTRAP_ENABLED=false` (the
+default). Do not add bootstrap values or password files to `.env.production`.
+
 ## Retention and deletion
 
 Manual deletion requires an authenticated project `ADMIN`, an archived project,

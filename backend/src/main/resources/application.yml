@@ -39,6 +39,11 @@ bridgeflow:
     enabled: ${BRIDGEFLOW_RETENTION_ENABLED:false}
     archived-project-days: ${BRIDGEFLOW_RETENTION_ARCHIVED_PROJECT_DAYS:365}
     cron: ${BRIDGEFLOW_RETENTION_CRON:0 30 2 * * *}
+  bootstrap:
+    enabled: ${BRIDGEFLOW_BOOTSTRAP_ENABLED:false}
+    email: ${BRIDGEFLOW_BOOTSTRAP_EMAIL:}
+    display-name: ${BRIDGEFLOW_BOOTSTRAP_DISPLAY_NAME:}
+    password-file: ${BRIDGEFLOW_BOOTSTRAP_PASSWORD_FILE:}
 
 server:
   port: ${SERVER_PORT:8080}

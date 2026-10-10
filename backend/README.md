@@ -37,6 +37,13 @@ Environment variables can override the development defaults:
 The password above is only for the local Docker database. Use a secret manager in
 deployed environments.
 
+Production does not create the development account. After starting a fresh
+production stack, create its first user with
+`scripts/bootstrap-production-user.ps1` from the repository root. The one-shot
+command accepts identity fields as parameters, reads the password from a prompt
+or approved file mount, and refuses to run once any user exists. See
+`docs/operations.md` for the exact procedure and security constraints.
+
 ## REST API
 
 Except for login, health checks, and API documentation, endpoints require an

@@ -109,7 +109,8 @@ The backend binds to `127.0.0.1` by default. Terminate TLS at a trusted reverse
 proxy and forward only the API port. PostgreSQL is isolated on an internal
 network; database and private documents use named volumes. See
 [docs/operations.md](docs/operations.md) for backup, restore, retention, and
-release procedures.
+release procedures, including the one-shot first-user bootstrap. Production
+never enables the development demo account.
 
 ## Planned milestones
 
@@ -125,3 +126,8 @@ release procedures.
    - 7B. Configurable retention and complete project deletion (implemented)
    - 7C. Verified PostgreSQL/document backup and restore tooling (implemented)
    - 7D. Repeatable release and security verification (implemented)
+8. Production readiness and delivery:
+   - 8A. Local production-stack smoke verification (verified)
+   - 8B. Database/document backup and restore runtime drill (verified)
+   - 8C. Secure initial production-user bootstrap (implemented)
+   - 8D. GitHub Actions continuous integration (planned)
