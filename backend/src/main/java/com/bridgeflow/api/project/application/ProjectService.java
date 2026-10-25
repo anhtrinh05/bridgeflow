@@ -3,6 +3,7 @@ package com.bridgeflow.api.project.application;
 import static com.bridgeflow.api.project.api.ProjectModels.CreateProjectRequest;
 import static com.bridgeflow.api.project.api.ProjectModels.DeleteProjectRequest;
 import static com.bridgeflow.api.project.api.ProjectModels.ProjectResponse;
+import static com.bridgeflow.api.project.api.ProjectModels.ProjectMemberResponse;
 import static com.bridgeflow.api.project.api.ProjectModels.UpdateProjectRequest;
 
 import java.util.List;
@@ -66,6 +67,16 @@ public class ProjectService {
     public ProjectResponse get(UUID userId, UUID projectId) {
         var member = accessService.requireMember(projectId, userId);
         return toResponse(member.getProject(), member.getRole());
+    }
+
+    public List<ProjectMemberResponse> listMembers(UUID userId, UUID projectId) {
+        accessService.requireMember(projectId, userId);
+        return memberRepository.findAllByProjectIdOrderByCreatedAtAsc(projectId).stream()
+            .map(member -> new ProjectMemberResponse(
+                member.getUser().getId(), member.getUser().getEmail(),
+                member.getUser().getDisplayName(), member.getRole().name()
+            ))
+            .toList();
     }
 
     @Transactional

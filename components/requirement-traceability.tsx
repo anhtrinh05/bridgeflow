@@ -40,11 +40,11 @@ export function RequirementTraceabilityWorkspace({ requirement, revision }: {
       const [trace, report, requirementPage, projects] = await Promise.all([
         bridgeFlowApi.getRequirementTraceability(requirement.id),
         bridgeFlowApi.getRequirementChangeImpact(requirement.id, revision.id),
-        bridgeFlowApi.listRequirements(requirement.projectId, { size: 100 }),
+        bridgeFlowApi.listAllRequirements(requirement.projectId),
         bridgeFlowApi.listProjects(),
       ]);
       setTraceability(trace); setImpact(report);
-      setCandidates(requirementPage.items.filter((item) => item.id !== requirement.id));
+      setCandidates(requirementPage.filter((item) => item.id !== requirement.id));
       setCanManage(["ADMIN", "BRSE"].includes(
         projects.find((item) => item.id === requirement.projectId)?.role ?? "VIEWER",
       ));
@@ -57,14 +57,15 @@ export function RequirementTraceabilityWorkspace({ requirement, revision }: {
 
   async function createRelation(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const form = new FormData(event.currentTarget);
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
     setSaving(true); setError(null);
     try {
       await bridgeFlowApi.createRequirementRelation(
         requirement.id, String(form.get("targetRequirementId")),
         String(form.get("relationType")) as RequirementRelationType,
       );
-      event.currentTarget.reset();
+      formElement.reset();
       await load();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Không thể tạo relation.");

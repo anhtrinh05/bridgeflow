@@ -4,9 +4,6 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "BridgeFlow — JP × VN Requirements",
   description: "AI-assisted requirements workspace for Japanese–Vietnamese software teams.",
-  other: {
-    "codex-preview": "development",
-  },
   icons: {
     icon: "/favicon.svg",
     shortcut: "/favicon.svg",

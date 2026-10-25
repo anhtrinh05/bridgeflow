@@ -101,3 +101,312 @@ body {
 }
 
 button { cursor: pointer; }
+
+::selection {
+  background: rgba(30, 136, 168, 0.2);
+  color: #07131d;
+}
+
+/*
+ * BridgeFlow presentation layer
+ * Inspired by ThreeUI's restrained surfaces and depth, while keeping this
+ * information-heavy workspace fast, readable and free of a WebGL dependency.
+ */
+.bridgeflow-app {
+  --bf-ink: #0b1620;
+  --bf-night: #07111c;
+  --bf-navy: #0e2940;
+  --bf-ocean: #176a86;
+  --bf-cyan: #55d6c2;
+  --bf-coral: #ff8a65;
+  --bf-paper: #f5f7f4;
+  background:
+    radial-gradient(circle at 80% -10%, rgba(85, 214, 194, 0.16), transparent 30rem),
+    radial-gradient(circle at 45% 22%, rgba(48, 126, 158, 0.08), transparent 34rem),
+    var(--bf-paper);
+}
+
+.bridgeflow-topbar {
+  border-color: rgba(255, 255, 255, 0.08);
+  background: rgba(7, 17, 28, 0.94);
+  color: #f8fafc;
+  box-shadow: 0 14px 44px rgba(7, 17, 28, 0.14);
+  backdrop-filter: blur(18px);
+}
+
+.bridgeflow-brand-mark {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(145deg, #5be0c7 0%, #2488a4 55%, #16415f 100%);
+  box-shadow: 0 10px 28px rgba(53, 196, 180, 0.24), inset 0 1px 0 rgba(255, 255, 255, 0.45);
+}
+
+.bridgeflow-brand-mark::after {
+  position: absolute;
+  inset: 1px;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: inherit;
+  content: "";
+  pointer-events: none;
+}
+
+.bridgeflow-topbar [data-slot="button"] {
+  color: #cbd5e1;
+}
+
+.bridgeflow-topbar [data-slot="button"]:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: white;
+}
+
+.bridgeflow-sidebar {
+  position: relative;
+  border-color: rgba(255, 255, 255, 0.06);
+  background:
+    radial-gradient(circle at 20% 4%, rgba(85, 214, 194, 0.12), transparent 13rem),
+    linear-gradient(180deg, #0b1927 0%, #0d2335 54%, #10293c 100%);
+  color: #d8e4ec;
+  box-shadow: 18px 0 50px rgba(20, 49, 71, 0.08);
+}
+
+.bridgeflow-sidebar::after {
+  position: absolute;
+  right: -1px;
+  bottom: 0;
+  left: 0;
+  height: 32%;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
+  background-size: 20px 20px;
+  mask-image: linear-gradient(to bottom, transparent, black);
+  content: "";
+  pointer-events: none;
+}
+
+.bridgeflow-sidebar > * {
+  position: relative;
+  z-index: 1;
+}
+
+.bridgeflow-project-switcher {
+  border-color: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.075);
+  color: white;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 15px 28px rgba(0, 0, 0, 0.12);
+  backdrop-filter: blur(14px);
+}
+
+.bridgeflow-project-switcher:hover {
+  border-color: rgba(85, 214, 194, 0.45);
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.bridgeflow-project-avatar {
+  background: linear-gradient(145deg, rgba(85, 214, 194, 0.98), rgba(32, 122, 153, 0.98));
+  color: #041019;
+  box-shadow: 0 8px 20px rgba(28, 156, 159, 0.22);
+}
+
+.bridgeflow-nav-item {
+  color: #aebfcb;
+}
+
+.bridgeflow-nav-item:hover {
+  background: rgba(255, 255, 255, 0.07);
+  color: white;
+}
+
+.bridgeflow-nav-item[aria-current="page"] {
+  background: linear-gradient(90deg, rgba(85, 214, 194, 0.18), rgba(85, 214, 194, 0.07));
+  color: #eafffb;
+  box-shadow: inset 3px 0 0 #55d6c2, inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.bridgeflow-nav-item[aria-current="page"] svg {
+  color: #65e2cd;
+  filter: drop-shadow(0 0 8px rgba(85, 214, 194, 0.3));
+}
+
+.bridgeflow-content {
+  position: relative;
+  isolation: isolate;
+}
+
+.bridgeflow-content::before {
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  background-image: radial-gradient(rgba(14, 41, 64, 0.07) 0.75px, transparent 0.75px);
+  background-size: 18px 18px;
+  mask-image: linear-gradient(to bottom, black, transparent 28rem);
+  content: "";
+  pointer-events: none;
+}
+
+.bridgeflow-view-heading h1 {
+  color: var(--bf-ink);
+  letter-spacing: -0.045em;
+}
+
+.bridgeflow-view-kicker {
+  color: #3f6175;
+}
+
+.bridgeflow-panel {
+  border-color: rgba(15, 46, 65, 0.1);
+  background: rgba(255, 255, 255, 0.88);
+  box-shadow: 0 1px 1px rgba(15, 46, 65, 0.04), 0 14px 34px rgba(15, 46, 65, 0.07);
+  backdrop-filter: blur(12px);
+}
+
+.bridgeflow-panel-lift {
+  transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
+}
+
+.bridgeflow-panel-lift:hover {
+  transform: translateY(-2px);
+  border-color: rgba(36, 136, 164, 0.28);
+  box-shadow: 0 2px 2px rgba(15, 46, 65, 0.03), 0 20px 42px rgba(15, 46, 65, 0.11);
+}
+
+.bridgeflow-stat {
+  position: relative;
+  overflow: hidden;
+}
+
+.bridgeflow-stat::after {
+  position: absolute;
+  right: -2.5rem;
+  bottom: -3rem;
+  width: 8rem;
+  height: 8rem;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(85, 214, 194, 0.2), transparent 66%);
+  content: "";
+  pointer-events: none;
+}
+
+.bridgeflow-workflow-hero {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background:
+    radial-gradient(circle at 92% 8%, rgba(85, 214, 194, 0.22), transparent 18rem),
+    linear-gradient(130deg, #08141f 0%, #0c2a40 58%, #13506a 100%);
+  color: white;
+  box-shadow: 0 24px 50px rgba(10, 35, 52, 0.18);
+}
+
+.bridgeflow-workflow-hero::after {
+  position: absolute;
+  right: -3rem;
+  bottom: -5rem;
+  width: 18rem;
+  height: 18rem;
+  border: 1px solid rgba(85, 214, 194, 0.18);
+  border-radius: 50%;
+  box-shadow: 0 0 0 34px rgba(85, 214, 194, 0.045), 0 0 0 72px rgba(85, 214, 194, 0.025);
+  content: "";
+  pointer-events: none;
+}
+
+.bridgeflow-progress-track {
+  overflow: hidden;
+  height: 7px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.bridgeflow-progress-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #55d6c2, #8cebd8);
+  box-shadow: 0 0 18px rgba(85, 214, 194, 0.45);
+}
+
+.bridgeflow-app [data-slot="button"][data-variant="default"] {
+  box-shadow: 0 8px 18px rgba(18, 58, 99, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+}
+
+.bridgeflow-app input,
+.bridgeflow-app textarea,
+.bridgeflow-app select {
+  transition: border-color 160ms ease, box-shadow 160ms ease, background-color 160ms ease;
+}
+
+.bridgeflow-app input:focus,
+.bridgeflow-app textarea:focus,
+.bridgeflow-app select:focus {
+  border-color: rgba(36, 136, 164, 0.7);
+  box-shadow: 0 0 0 3px rgba(36, 136, 164, 0.12);
+}
+
+.bridgeflow-login {
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 15% 12%, rgba(85, 214, 194, 0.22), transparent 24rem),
+    radial-gradient(circle at 88% 90%, rgba(45, 126, 163, 0.18), transparent 28rem),
+    #07111c;
+}
+
+.bridgeflow-login::before {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
+  background-size: 38px 38px;
+  mask-image: radial-gradient(circle at 30% 45%, black, transparent 70%);
+  content: "";
+  pointer-events: none;
+}
+
+.bridgeflow-login-orb {
+  position: absolute;
+  top: 50%;
+  left: 22%;
+  width: min(34vw, 32rem);
+  aspect-ratio: 1;
+  border: 1px solid rgba(115, 236, 215, 0.22);
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 36% 30%, rgba(139, 239, 222, 0.68), transparent 10%),
+    radial-gradient(circle at 47% 46%, rgba(33, 122, 151, 0.5), transparent 46%),
+    radial-gradient(circle at 58% 58%, rgba(9, 22, 34, 0.1), rgba(5, 13, 22, 0.95) 70%);
+  box-shadow: 0 0 80px rgba(67, 198, 184, 0.12), inset -24px -30px 70px rgba(1, 7, 12, 0.55);
+  transform: translate(-50%, -50%);
+  animation: bridgeflow-float 9s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.bridgeflow-login-orb::after {
+  position: absolute;
+  inset: -8%;
+  border: 1px solid rgba(85, 214, 194, 0.12);
+  border-radius: 50%;
+  content: "";
+}
+
+.bridgeflow-login-card {
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 34px 90px rgba(0, 0, 0, 0.35), inset 0 1px 0 white;
+  backdrop-filter: blur(24px);
+}
+
+@keyframes bridgeflow-float {
+  0%, 100% { transform: translate(-50%, -50%) rotate(-3deg) scale(0.98); }
+  50% { transform: translate(-50%, calc(-50% - 12px)) rotate(3deg) scale(1.02); }
+}
+
+@media (max-width: 1023px) {
+  .bridgeflow-topbar { box-shadow: 0 10px 30px rgba(7, 17, 28, 0.14); }
+  .bridgeflow-login-orb { left: 50%; opacity: 0.3; width: 28rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bridgeflow-login-orb { animation: none; }
+  .bridgeflow-panel-lift { transition: none; }
+}

@@ -9,6 +9,9 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface ProjectMemberRepository extends JpaRepository<ProjectMember, UUID> {
 
+    @EntityGraph(attributePaths = "user")
+    List<ProjectMember> findAllByProjectIdOrderByCreatedAtAsc(UUID projectId);
+
     @EntityGraph(attributePaths = "project")
     List<ProjectMember> findAllByUserIdOrderByProjectUpdatedAtDesc(UUID userId);
 

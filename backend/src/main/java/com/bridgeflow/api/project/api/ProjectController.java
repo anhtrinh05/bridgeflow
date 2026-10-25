@@ -19,6 +19,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.bridgeflow.api.project.api.ProjectModels.CreateProjectRequest;
 import com.bridgeflow.api.project.api.ProjectModels.DeleteProjectRequest;
 import com.bridgeflow.api.project.api.ProjectModels.ProjectResponse;
+import com.bridgeflow.api.project.api.ProjectModels.ProjectMemberResponse;
 import com.bridgeflow.api.project.api.ProjectModels.UpdateProjectRequest;
 import com.bridgeflow.api.project.application.ProjectService;
 import com.bridgeflow.api.auth.application.CurrentUser;
@@ -54,6 +55,14 @@ public class ProjectController {
     @Operation(operationId = "getProject", summary = "Get a project")
     public ProjectResponse get(@AuthenticationPrincipal CurrentUser user, @PathVariable UUID projectId) {
         return projectService.get(user.id(), projectId);
+    }
+
+    @GetMapping("/{projectId}/members")
+    @Operation(operationId = "listProjectMembers", summary = "List members of an accessible project")
+    public List<ProjectMemberResponse> members(
+        @AuthenticationPrincipal CurrentUser user, @PathVariable UUID projectId
+    ) {
+        return projectService.listMembers(user.id(), projectId);
     }
 
     @PostMapping

@@ -13,6 +13,8 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Tracked secret-pattern scan failed.' }
     & npm.cmd exec tsc -- --noEmit
     if ($LASTEXITCODE -ne 0) { throw 'Frontend type-check failed.' }
+    & npm.cmd run test:frontend
+    if ($LASTEXITCODE -ne 0) { throw 'Frontend regression tests failed.' }
     & npm.cmd run build
     if ($LASTEXITCODE -ne 0) { throw 'Frontend production build failed.' }
     & npm.cmd run ops:validate

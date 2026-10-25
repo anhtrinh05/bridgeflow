@@ -1,6 +1,7 @@
 import type { components, operations } from "@/lib/generated/bridgeflow-api";
 
 export type Project = components["schemas"]["ProjectResponse"];
+export type ProjectMember = components["schemas"]["ProjectMemberResponse"];
 export type RequirementPage = components["schemas"]["RequirementPageResponse"];
 export type Revision = components["schemas"]["RevisionResponse"];
 export type Requirement = components["schemas"]["RequirementResponse"];
@@ -230,6 +231,8 @@ export const bridgeFlowApi = {
   },
   listProjects: (includeArchived = false) =>
     request<Project[]>(`/projects${includeArchived ? "?includeArchived=true" : ""}`),
+  listProjectMembers: (projectId: string) =>
+    request<ProjectMember[]>(`/projects/${projectId}/members`),
   createProject: (body: CreateProjectRequest) =>
     request<Project>("/projects", { method: "POST", body: JSON.stringify(body) }),
   updateProject: (projectId: string, body: UpdateProjectRequest) =>
@@ -253,6 +256,17 @@ export const bridgeFlowApi = {
     return request<RequirementPage>(`/projects/${projectId}/requirements?${params}`);
   },
   getRequirement: (requirementId: string) => request<Requirement>(`/requirements/${requirementId}`),
+  listAllRequirements: async (projectId: string) => {
+    const items: Requirement[] = [];
+    let page = 0;
+    let result: RequirementPage;
+    do {
+      result = await bridgeFlowApi.listRequirements(projectId, { page, size: 100 });
+      items.push(...result.items);
+      page += 1;
+    } while (page < result.totalPages);
+    return items;
+  },
   createRequirement: (projectId: string, body: CreateRequirementRequest) =>
     request<Requirement>(`/projects/${projectId}/requirements`, { method: "POST", body: JSON.stringify(body) }),
   addRevision: (requirementId: string, body: CreateRevisionRequest) =>

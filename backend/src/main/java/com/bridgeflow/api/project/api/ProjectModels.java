@@ -31,6 +31,14 @@ public final class ProjectModels {
     ) {
     }
 
+    public record ProjectMemberResponse(
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) UUID userId,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String email,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String displayName,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String role
+    ) {
+    }
+
     public record ProjectResponse(
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) UUID id,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String code,

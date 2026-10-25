@@ -111,6 +111,9 @@ jobs:
       - name: Type-check frontend
         run: npm exec tsc -- --noEmit
 
+      - name: Verify frontend regressions
+        run: npm run test:frontend
+
       - name: Build frontend
         run: npm run build
 

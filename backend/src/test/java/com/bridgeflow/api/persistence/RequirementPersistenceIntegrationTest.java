@@ -292,6 +292,9 @@ class RequirementPersistenceIntegrationTest {
         assertThat(contract.required("paths")
             .required("/api/v1/projects/{projectId}/exports/requirements.csv")
             .required("get").required("operationId").asText()).isEqualTo("exportRequirementsCsv");
+        assertThat(contract.required("paths")
+            .required("/api/v1/projects/{projectId}/members")
+            .required("get").required("operationId").asText()).isEqualTo("listProjectMembers");
         var schemas = contract.required("components").required("schemas");
         assertThat(schemas.has("RequirementResponse")).isTrue();
         assertThat(schemas.has("RequirementAnalysisResponse")).isTrue();
@@ -505,6 +508,42 @@ class RequirementPersistenceIntegrationTest {
             "viewer cannot upload".getBytes(StandardCharsets.UTF_8), 403
         );
         assertThat(documentForbidden.required("code").asText()).isEqualTo("ACCESS_DENIED");
+    }
+
+    @Test
+    void listsProjectMembersWithoutExposingCredentialsOrOtherProjects() throws Exception {
+        var ownerId = loginTestUser();
+        var suffix = UUID.randomUUID().toString().substring(0, 8).toUpperCase();
+        var projectResponse = sendJson("POST", "/api/v1/projects", """
+            {"code":"MEMBERS-%s","name":"Member listing project","customerName":null}
+            """.formatted(suffix), 201);
+        var projectId = UUID.fromString(projectResponse.required("id").asText());
+        var path = "/api/v1/projects/" + projectId + "/members";
+        var members = sendJson("GET", path, null, 200);
+        assertThat(members).hasSize(1);
+        assertThat(members.get(0).required("userId").asText()).isEqualTo(ownerId.toString());
+        assertThat(members.get(0).required("role").asText()).isEqualTo("ADMIN");
+        assertThat(members.get(0).size()).isEqualTo(4);
+        assertThat(members.get(0).has("passwordHash")).isFalse();
+        sendJsonUnauthenticated("GET", path, null, 401);
+
+        var otherProject = sendJson("POST", "/api/v1/projects", """
+            {"code":"PRIVATE-%s","name":"Other project","customerName":null}
+            """.formatted(suffix), 201);
+        var viewer = userRepository.save(new AppUser(
+            "member-viewer-" + UUID.randomUUID() + "@bridgeflow.local", "Member Viewer",
+            passwordEncoder.encode("member-test-password")
+        ));
+        memberRepository.save(new ProjectMember(
+            projectRepository.findById(projectId).orElseThrow(), viewer, ProjectRole.VIEWER
+        ));
+        login(viewer.getEmail(), "member-test-password");
+        members = sendJson("GET", path, null, 200);
+        assertThat(members).hasSize(2);
+        assertThat(members.toString()).contains(viewer.getEmail(), "Member Viewer", "VIEWER");
+        var blocked = sendJson("GET", "/api/v1/projects/"
+            + otherProject.required("id").asText() + "/members", null, 403);
+        assertThat(blocked.required("code").asText()).isEqualTo("ACCESS_DENIED");
     }
 
     @Test
