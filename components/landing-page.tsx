@@ -4,6 +4,7 @@ import Link from "next/link";
 
 import { useEffect, useRef, useState } from "react";
 import { ArrowDown, ArrowRight, BookOpenText, Check, FileText, GitCompareArrows, Languages, Menu, MessageSquareText, ShieldCheck, Sparkles, TestTube2, X } from "lucide-react";
+import { SmoothScrollProvider } from "@/components/smooth-scroll-provider";
 import "./landing-page.css";
 
 /* ═══════════════════════════════════════════════════════════════
@@ -284,9 +285,11 @@ export function LandingPage() {
     return () => window.removeEventListener("hashchange", restoreWorkspaceLink);
   }, []);
   const current = examples[example];
-  return <div className="bf-landing">
-    {/* ── Canvas Background ────────────────────────────── */}
-    <FlowCanvas />
+  return (
+    <SmoothScrollProvider>
+      <div className="bf-landing">
+        {/* ── Canvas Background ────────────────────────────── */}
+        <FlowCanvas />
 
     <a className="bf-skip" href="#noi-dung">Đi tới nội dung</a>
     <header className="bf-landing-header">
@@ -363,5 +366,7 @@ export function LandingPage() {
       <section className="bf-section bf-final-cta"><p className="bf-eyebrow">CÙNG HIỂU. CÙNG XÂY.</p><h2>Bắt đầu từ một yêu cầu rõ ràng.</h2><p>Mở workspace và kết nối tài liệu với những quyết định của nhóm.</p><Link href="/workspace" className="bf-cta">Vào BridgeFlow <ArrowRight size={18} /></Link><small>Dành cho tài khoản đã được cấp quyền.</small></section>
     </main>
     <footer className="bf-landing-footer"><Link className="bf-wordmark" href="/"> <Languages size={21} />BridgeFlow</Link><p>日本語 × Tiếng Việt · Cùng một cách hiểu.</p><a href="#noi-dung">Về đầu trang ↑</a></footer>
-  </div>;
+  </div>
+</SmoothScrollProvider>
+);
 }

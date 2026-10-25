@@ -53,10 +53,10 @@ export function OverviewDashboard({ project, requirements, documentCount, glossa
     </section>
 
     <div className="bf-metric-grid">
-      <button className="bf-metric" onClick={() => changeFilter("all", true)}><span><BookOpenText size={17} />Tổng yêu cầu</span><strong>{active.length}</strong><small>Đang theo dõi <ArrowRight size={14} /></small></button>
-      <button className="bf-metric" onClick={() => changeFilter("pending", true)}><span><ListFilter size={17} />Cần xem lại</span><strong className="bf-amber">{pending}</strong><small>Nháp, chờ duyệt hoặc cần sửa <ArrowRight size={14} /></small></button>
-      <button className="bf-metric" onClick={() => changeFilter("confirmed", true)}><span><CircleCheck size={17} />Đã xác nhận</span><strong className="bf-green">{confirmed}</strong><small>Nội dung đã được xác nhận <ArrowRight size={14} /></small></button>
-      <button className="bf-metric" onClick={() => onNavigate("documents")}><span><FileText size={17} />Tài liệu nguồn</span><strong>{documentCount}</strong><small>Xem tài liệu và phiên bản <ArrowRight size={14} /></small></button>
+      <button className="bf-metric bf-metric-total" onClick={() => changeFilter("all", true)}><span><BookOpenText size={17} />Tổng yêu cầu</span><strong>{active.length}</strong><small>Đang theo dõi <ArrowRight size={14} /></small></button>
+      <button className="bf-metric bf-metric-pending" onClick={() => changeFilter("pending", true)}><span><ListFilter size={17} />Cần xem lại</span><strong className="bf-amber">{pending}</strong><small>Nháp, chờ duyệt hoặc cần sửa <ArrowRight size={14} /></small></button>
+      <button className="bf-metric bf-metric-confirmed" onClick={() => changeFilter("confirmed", true)}><span><CircleCheck size={17} />Đã xác nhận</span><strong className="bf-green">{confirmed}</strong><small>Nội dung đã được xác nhận <ArrowRight size={14} /></small></button>
+      <button className="bf-metric bf-metric-docs" onClick={() => onNavigate("documents")}><span><FileText size={17} />Tài liệu nguồn</span><strong>{documentCount}</strong><small>Xem tài liệu và phiên bản <ArrowRight size={14} /></small></button>
     </div>
 
     <div className="bf-overview-columns">
