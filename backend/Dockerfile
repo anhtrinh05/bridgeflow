@@ -17,4 +17,5 @@ COPY --from=build /workspace/target/bridgeflow-api-*.jar /app/bridgeflow-api.jar
 RUN mkdir -p /var/lib/bridgeflow/documents && chown -R bridgeflow:bridgeflow /app /var/lib/bridgeflow
 USER bridgeflow
 EXPOSE 8080
-ENTRYPOINT ["java", "-jar", "/app/bridgeflow-api.jar"]
+ENV JAVA_TOOL_OPTIONS="-Xmx220m -Xms100m -XX:MaxMetaspaceSize=110m -XX:ReservedCodeCacheSize=40m -Xss256k -XX:+UseSerialGC -XX:TieredStopAtLevel=1"
+ENTRYPOINT ["java", "-Xmx220m", "-Xms100m", "-XX:MaxMetaspaceSize=110m", "-XX:ReservedCodeCacheSize=40m", "-Xss256k", "-XX:+UseSerialGC", "-XX:TieredStopAtLevel=1", "-jar", "/app/bridgeflow-api.jar"]
