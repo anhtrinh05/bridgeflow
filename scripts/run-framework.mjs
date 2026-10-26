@@ -6,6 +6,17 @@ const [command, ...args] = process.argv.slice(2);
 if (!["dev", "build"].includes(command)) throw new Error("Expected dev or build.");
 const managedLinux = readExecutionProfile() === "managed-linux";
 
+if (process.env.VERCEL) {
+  const projectRoot = fileURLToPath(new URL("..", import.meta.url));
+  const nextBin = fileURLToPath(new URL("../node_modules/next/dist/bin/next", import.meta.url));
+  const result = spawnSync(process.execPath, [nextBin, command, ...args], {
+    cwd: projectRoot,
+    stdio: "inherit",
+  });
+  if (result.error) throw result.error;
+  process.exit(result.status ?? 1);
+}
+
 if (managedLinux && command === "build") {
   const result = spawnSync("bash", [
     fileURLToPath(new URL("./build-verified.sh", import.meta.url)), ...args,
